@@ -3,8 +3,8 @@ import * as Select from '@radix-ui/react-select';
 export default function ModelSelect({ models, value, onChange }) {
   return (
     <Select.Root value={value} onValueChange={onChange}>
-      <Select.Trigger className="inline-flex items-center justify-between rounded-sm px-3 py-1.5 text-sm bg-[#202123] text-[#ececf1] border border-[#4e4f56] hover:border-[#19c37d] outline-none focus:border-[#19c37d] min-w-[180px]">
-        <Select.Value />
+      <Select.Trigger className="inline-flex w-full min-w-0 items-center justify-between rounded-sm border border-[#4e4f56] bg-[#202123] px-3 py-2 text-left text-sm text-[#ececf1] outline-none hover:border-[#19c37d] focus:border-[#19c37d] sm:min-w-[180px] sm:py-1.5">
+        <Select.Value className="truncate" />
         <Select.Icon className="ml-2">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
             <path d="M2.5 4.5L6 8L9.5 4.5" />
@@ -19,14 +19,14 @@ export default function ModelSelect({ models, value, onChange }) {
           align="end"
           sideOffset={6}
           collisionPadding={8}
-          className="z-50 overflow-hidden bg-[#202123] border border-[#4e4f56] rounded-md shadow-lg"
+          className="z-50 w-[var(--radix-select-trigger-width)] max-w-[min(92vw,22rem)] overflow-hidden rounded-md border border-[#4e4f56] bg-[#202123] shadow-lg"
         >
           <Select.Viewport className="p-1">
             {models.map((model) => (
               <Select.Item
                 key={model.id}
                 value={model.id}
-                className="relative flex items-center h-8 px-6 text-sm text-[#ececf1] rounded-sm cursor-pointer select-none outline-none data-[highlighted]:bg-[#19c37d] data-[highlighted]:text-white"
+                className="relative flex min-h-8 cursor-pointer select-none items-center rounded-sm px-3 py-2 text-sm text-[#ececf1] outline-none data-[highlighted]:bg-[#19c37d] data-[highlighted]:text-white sm:px-6"
               >
                 <Select.ItemText>{`${model.provider}/${model.name}`}</Select.ItemText>
               </Select.Item>

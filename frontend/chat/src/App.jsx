@@ -32,6 +32,29 @@ function saveGuestChats(chats) {
   localStorage.setItem(GUEST_CHAT_STORAGE_KEY, JSON.stringify(chats));
 }
 
+function normalizeModelId(modelId, models, fallback = '') {
+  if (!modelId) {
+    return fallback;
+  }
+
+  const exact = models.find(model => model.id === modelId);
+  if (exact) {
+    return exact.id;
+  }
+
+  const providerMatch = models.find(model => model.provider === modelId);
+  if (providerMatch) {
+    return providerMatch.id;
+  }
+
+  const legacySuffixMatch = models.find(model => model.id.endsWith(`/${modelId}`));
+  if (legacySuffixMatch) {
+    return legacySuffixMatch.id;
+  }
+
+  return fallback || modelId;
+}
+
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authMode, setAuthMode] = useState('user');
@@ -41,6 +64,7 @@ export default function App() {
   const [chats, setChats] = useState([]);
   const [currentChat, setCurrentChat] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [guestLimitNotice, setGuestLimitNotice] = useState('');
@@ -96,16 +120,20 @@ export default function App() {
       Promise.all([modelPromise, chatPromise]).then(([modelData, chatList]) => {
         const models = modelData.models;
         const defaultModel = modelData.defaultModel;
+        const fallbackModel = defaultModel || models[0]?.id || '';
+        const normalizedChats = chatList.map(chat => ({
+          ...chat,
+          model: normalizeModelId(chat.model, models, fallbackModel),
+        }));
+
         setModels(models);
-        setChats(chatList);
-        if (chatList.length > 0) {
-          const firstChat = chatList[0];
+        setChats(normalizedChats);
+        if (normalizedChats.length > 0) {
+          const firstChat = normalizedChats[0];
           setCurrentChat({ ...firstChat, messages: Array.isArray(firstChat.messages) ? firstChat.messages : [] });
           setSelectedModel(firstChat.model);
-        } else if (defaultModel) {
-          setSelectedModel(defaultModel);
-        } else if (models.length > 0) {
-          setSelectedModel(models[0].id);
+        } else {
+          setSelectedModel(fallbackModel);
         }
       }).catch((err) => {
         console.error('Failed to load data:', err);
@@ -150,7 +178,7 @@ export default function App() {
       const chat = mock.createChat();
       setChats(mock.getChats());
       setCurrentChat(chat);
-      setSelectedModel(chat.model);
+      setSelectedModel(normalizeModelId(chat.model, models, chat.model));
     } else if (isGuest) {
       if (chats.length >= GUEST_CHAT_LIMIT) {
         setGuestLimitNotice('游客聊天记录已达到 10 条上限，请登录后继续创建新会话。');
@@ -175,7 +203,7 @@ export default function App() {
       const chat = await createChat({ model: selectedModel });
       setChats(prev => [chat, ...prev]);
       setCurrentChat(chat);
-      setSelectedModel(chat.model);
+      setSelectedModel(normalizeModelId(chat.model, models, selectedModel));
     }
   };
 
@@ -184,15 +212,16 @@ export default function App() {
       mock.setCurrentChat(chatId);
       const chat = mock.getChats().find(c => c.id === chatId);
       setCurrentChat(chat);
-      setSelectedModel(chat?.model || models[0]?.id);
+      setSelectedModel(normalizeModelId(chat?.model, models, models[0]?.id || ''));
     } else if (isGuest) {
       const chat = chats.find(c => c.id === chatId) || null;
       setCurrentChat(chat);
-      setSelectedModel(chat?.model || models[0]?.id);
+      setSelectedModel(normalizeModelId(chat?.model, models, models[0]?.id || ''));
     } else {
       const chat = await fetchChat(chatId);
-      setCurrentChat({ ...chat, messages: Array.isArray(chat?.messages) ? chat.messages : [] });
-      setSelectedModel(chat?.model || models[0]?.id);
+      const normalizedModel = normalizeModelId(chat?.model, models, models[0]?.id || '');
+      setCurrentChat({ ...chat, model: normalizedModel, messages: Array.isArray(chat?.messages) ? chat.messages : [] });
+      setSelectedModel(normalizedModel);
     }
   };
 
@@ -214,7 +243,7 @@ export default function App() {
       if (currentChat?.id === chatId) {
         const nextCurrent = nextChats[0] || null;
         setCurrentChat(nextCurrent);
-        setSelectedModel(nextCurrent?.model || models[0]?.id || '');
+        setSelectedModel(normalizeModelId(nextCurrent?.model, models, models[0]?.id || ''));
       }
     } else {
       await deleteChat(chatId);
@@ -222,13 +251,15 @@ export default function App() {
       if (currentChat?.id === chatId) {
         const newChats = chats.filter(c => c.id !== chatId);
         setCurrentChat(newChats[0] || null);
-        setSelectedModel(newChats[0]?.model || models[0]?.id || '');
+        setSelectedModel(normalizeModelId(newChats[0]?.model, models, models[0]?.id || ''));
       }
     }
   };
 
   const handleSend = async (content) => {
-    if (!selectedModel || isLoading) return;
+    const effectiveModel = normalizeModelId(selectedModel, models, selectedModel);
+
+    if (!effectiveModel || isLoading) return;
     if (isGuest && !currentChat && chats.length >= GUEST_CHAT_LIMIT) {
       setGuestLimitNotice('游客聊天记录已达到 10 条上限，请登录后继续。');
       return;
@@ -245,7 +276,7 @@ export default function App() {
     setCurrentChat(prev => (
       prev
         ? { ...prev, messages: [...newMessages, waitingAssistant] }
-        : { messages: [...newMessages, waitingAssistant], model: selectedModel }
+        : { messages: [...newMessages, waitingAssistant], model: effectiveModel }
     ));
     setGuestLimitNotice('');
     setIsLoading(true);
@@ -253,8 +284,8 @@ export default function App() {
     try {
       let fullContent = '';
       const streamFn = USE_MOCK 
-        ? () => mock.streamChatMock(selectedModel, newMessages)
-        : () => streamChat(selectedModel, newMessages);
+        ? () => mock.streamChatMock(effectiveModel, newMessages)
+        : () => streamChat(effectiveModel, newMessages);
 
       for await (const chunk of streamFn()) {
         fullContent += chunk;
@@ -287,7 +318,7 @@ export default function App() {
         mock.updateChat(chatId, { 
           title: currentChat?.title || title,
           messages: [...newMessages, { role: 'assistant', content: fullContent }],
-          model: selectedModel,
+          model: effectiveModel,
         });
         setChats(mock.getChats());
         setCurrentChat(mock.getCurrentChat());
@@ -302,7 +333,7 @@ export default function App() {
             chatId = `guest_${Date.now()}`;
             const created = upsertGuestChat(chatId, {
               title,
-              model: selectedModel,
+              model: effectiveModel,
               messages: finalMessages,
             });
             setCurrentChat(created);
@@ -310,7 +341,7 @@ export default function App() {
         } else {
           const updated = upsertGuestChat(chatId, {
             title: currentChat?.title || title,
-            model: selectedModel,
+            model: effectiveModel,
             messages: finalMessages,
           });
           if (updated) setCurrentChat(updated);
@@ -320,7 +351,7 @@ export default function App() {
         let chatId = currentChat?.id;
         if (!chatId) {
           const finalMessages = [...newMessages, { role: 'assistant', content: fullContent }];
-          const newChat = await createChat({ title, model: selectedModel, messages: finalMessages });
+          const newChat = await createChat({ title, model: effectiveModel, messages: finalMessages });
           chatId = newChat.id;
           setChats(prev => [newChat, ...prev]);
           setCurrentChat(newChat);
@@ -330,9 +361,9 @@ export default function App() {
             await updateChat(chatId, {
               title: currentChat?.title || title,
               messages: updatedMessages,
-              model: selectedModel,
+              model: effectiveModel,
             });
-            const updatedChat = { ...currentChat, title: currentChat?.title || title, messages: updatedMessages, model: selectedModel };
+            const updatedChat = { ...currentChat, title: currentChat?.title || title, messages: updatedMessages, model: effectiveModel };
             setCurrentChat(updatedChat);
             setChats(prev => prev.map(c => c.id === chatId ? { ...c, title: updatedChat.title } : c));
           } catch (error) {
@@ -342,7 +373,7 @@ export default function App() {
             // Backend chat memory may be cleared after restart; recreate and continue.
             const recreatedChat = await createChat({
               title: currentChat?.title || title,
-              model: selectedModel,
+              model: effectiveModel,
               messages: updatedMessages,
             });
             setChats(prev => [recreatedChat, ...prev.filter(c => c.id !== chatId)]);
@@ -369,28 +400,31 @@ export default function App() {
   };
 
   const handleModelChange = async (modelId) => {
-    setSelectedModel(modelId);
+    const normalizedModelId = normalizeModelId(modelId, models, modelId);
+
+    setSelectedModel(normalizedModelId);
+    setGuestLimitNotice('');
     if (USE_MOCK && currentChat) {
-      mock.updateChat(currentChat.id, { model: modelId });
+      mock.updateChat(currentChat.id, { model: normalizedModelId });
     } else if (isGuest && currentChat) {
       const updated = upsertGuestChat(currentChat.id, {
-        model: modelId,
+        model: normalizedModelId,
         title: currentChat.title,
         messages: currentChat.messages || [],
       });
       if (updated) setCurrentChat(updated);
     } else if (currentChat) {
       try {
-        await updateChat(currentChat.id, { model: modelId });
-        setCurrentChat(prev => prev ? { ...prev, model: modelId } : prev);
-        setChats(prev => prev.map(c => c.id === currentChat.id ? { ...c, model: modelId } : c));
+        await updateChat(currentChat.id, { model: normalizedModelId });
+        setCurrentChat(prev => prev ? { ...prev, model: normalizedModelId } : prev);
+        setChats(prev => prev.map(c => c.id === currentChat.id ? { ...c, model: normalizedModelId } : c));
       } catch (error) {
         if (!is404Error(error)) {
           throw error;
         }
         const recreatedChat = await createChat({
           title: currentChat.title || '新对话',
-          model: modelId,
+          model: normalizedModelId,
           messages: currentChat.messages || [],
         });
         setChats(prev => [recreatedChat, ...prev.filter(c => c.id !== currentChat.id)]);
@@ -401,6 +435,7 @@ export default function App() {
 
   const handleRegenerate = async (assistantIndex) => {
     if (!currentChat || isLoading) return;
+    const effectiveModel = normalizeModelId(selectedModel, models, selectedModel);
     const userMessageIndex = assistantIndex - 1;
     if (userMessageIndex < 0 || currentChat.messages[userMessageIndex].role !== 'user') return;
     
@@ -414,8 +449,8 @@ export default function App() {
       let fullContent = '';
       const newMessages = msgs;
       const streamFn = USE_MOCK 
-        ? () => mock.streamChatMock(selectedModel, newMessages)
-        : () => streamChat(selectedModel, newMessages);
+        ? () => mock.streamChatMock(effectiveModel, newMessages)
+        : () => streamChat(effectiveModel, newMessages);
 
       for await (const chunk of streamFn()) {
         fullContent += chunk;
@@ -450,7 +485,7 @@ export default function App() {
         const updatedMessages = [...msgs, { role: 'assistant', content: fullContent }];
         const updated = upsertGuestChat(currentChat.id, {
           title: currentChat.title || '新对话',
-          model: selectedModel,
+          model: effectiveModel,
           messages: updatedMessages,
         });
         if (updated) setCurrentChat(updated);
@@ -466,7 +501,7 @@ export default function App() {
           }
           const recreatedChat = await createChat({
             title: currentChat.title || '新对话',
-            model: selectedModel,
+            model: effectiveModel,
             messages: updatedMessages,
           });
           setChats(prev => [recreatedChat, ...prev.filter(c => c.id !== currentChat.id)]);
@@ -493,7 +528,7 @@ export default function App() {
   }
   
   return (
-    <div className="flex h-screen">
+    <div className="flex h-[100dvh] overflow-hidden bg-[#343541]">
       <Sidebar
         chats={chats}
         currentChatId={currentChat?.id}
@@ -502,27 +537,28 @@ export default function App() {
         onDeleteChat={handleDeleteChat}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        mobileOpen={mobileSidebarOpen}
+        onClose={() => setMobileSidebarOpen(false)}
       />
 
-      <div className="flex-1 flex flex-col">
-        <header className="flex items-center justify-between px-4 py-3 border-b border-[#3e3f4a] bg-[#202123]">
-          <h1 className="text-lg font-semibold text-[#ececf1]">XN Chat</h1>
-          <div className="flex items-center gap-4">
-            {isGuest && (
-              <span className="px-2 py-1 text-xs rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                游客模式
-              </span>
-            )}
-            {models.length > 0 && (
-              <ModelSelect
-                models={models}
-                value={selectedModel}
-                onChange={handleModelChange}
-              />
-            )}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex flex-wrap items-center gap-3 border-b border-[#3e3f4a] bg-[#202123] px-3 py-3 sm:px-4">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <button
+              onClick={() => setMobileSidebarOpen(true)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[#ececf1] hover:bg-[#2a2b30] md:hidden"
+              title="打开聊天记录"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+            <h1 className="truncate text-base font-semibold text-[#ececf1] sm:text-lg">XN Chat</h1>
             <button
               onClick={handleLogout}
-              className="px-3 py-1.5 text-sm text-[#8e8ea0] hover:text-[#ececf1] hover:bg-[#2a2b30] rounded-md transition-colors"
+              className="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-md text-sm text-[#8e8ea0] transition-colors hover:bg-[#2a2b30] hover:text-[#ececf1] sm:h-auto sm:w-auto sm:px-3 sm:py-1.5"
               title={isGuest ? '退出游客模式' : '退出登录'}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -532,16 +568,32 @@ export default function App() {
               </svg>
             </button>
           </div>
+          <div className="flex w-full items-center gap-2 sm:w-auto sm:flex-none sm:gap-3">
+            {isGuest && (
+              <span className="shrink-0 rounded-md border border-amber-500/40 bg-amber-500/20 px-2 py-1 text-xs text-amber-300">
+                游客模式
+              </span>
+            )}
+            {models.length > 0 && (
+              <div className="min-w-0 flex-1 sm:flex-none">
+                <ModelSelect
+                  models={models}
+                  value={selectedModel}
+                  onChange={handleModelChange}
+                />
+              </div>
+            )}
+          </div>
         </header>
         {guestLimitNotice && (
-          <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/30 text-amber-200 text-sm">
+          <div className="border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200 sm:px-4">
             {guestLimitNotice}
           </div>
         )}
 
         <main className="flex-1 overflow-y-auto bg-[#343541]">
           {loadError ? (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex h-full items-center justify-center px-4">
               <div className="text-center text-[#f85149] max-w-md px-4">
                 <div className="mb-4">
                   <svg className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -553,7 +605,7 @@ export default function App() {
               </div>
             </div>
           ) : models.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex h-full items-center justify-center px-4">
               <div className="text-center text-[#8e8ea0]">
                 <div className="mb-4">
                   <svg className="animate-spin h-8 w-8 mx-auto text-[#19c37d]" viewBox="0 0 24 24">
@@ -565,14 +617,14 @@ export default function App() {
               </div>
             </div>
           ) : !currentChat || safeMessages.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex h-full items-center justify-center px-6">
               <div className="text-center text-[#8e8ea0]">
-                <p className="text-3xl mb-3 font-medium">你好，我是 AI 助手</p>
-                <p className="text-lg">有什么可以帮助你的吗？</p>
+                <p className="mb-3 text-2xl font-medium sm:text-3xl">你好，我是 AI 助手</p>
+                <p className="text-base sm:text-lg">有什么可以帮助你的吗？</p>
               </div>
             </div>
           ) : (
-            <div className="pb-4 max-w-3xl mx-auto">
+            <div className="mx-auto w-full max-w-4xl pb-4">
               {safeMessages.map((msg, i) => (
                 <ChatMessage 
                   key={i} 

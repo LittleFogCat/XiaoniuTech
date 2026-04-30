@@ -13,12 +13,12 @@ export default function ChatMessage({ role, content, onRegenerate, isThinking = 
   };
 
   return (
-    <div className="flex justify-center py-4">
-      <div className="w-full max-w-3xl mx-auto" style={{ maxWidth: '85%' }}>
+    <div className="flex justify-center px-3 py-3 sm:px-4 sm:py-4">
+      <div className="mx-auto w-full max-w-4xl">
         {isUser ? (
           <div className="flex justify-end">
-            <div className="bg-[#19c37d] text-white rounded-2xl px-5 py-3 shadow-sm break-words" style={{ maxWidth: '67%' }}>
-              <div className="prose prose-invert max-w-none text-base leading-relaxed">
+            <div className="max-w-[90%] break-words rounded-2xl bg-[#19c37d] px-4 py-3 text-white shadow-sm sm:max-w-[70%] sm:px-5">
+              <div className="prose prose-invert max-w-none text-[15px] leading-relaxed sm:text-base">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {content}
                 </ReactMarkdown>
@@ -26,7 +26,7 @@ export default function ChatMessage({ role, content, onRegenerate, isThinking = 
             </div>
           </div>
         ) : (
-          <div className="break-words">
+          <div className="break-words pr-1 sm:pr-0">
             <div className="text-[#ececf1]">
               {isThinking ? (
                 <div className="flex items-center gap-2 h-7">
@@ -35,14 +35,14 @@ export default function ChatMessage({ role, content, onRegenerate, isThinking = 
                   <span className="w-2 h-2 rounded-full bg-[#b4b4c3] animate-pulse [animation-delay:300ms]" />
                 </div>
               ) : (
-                <div className="prose prose-invert max-w-none text-base leading-relaxed">
+                <div className="prose prose-invert max-w-none text-[15px] leading-relaxed sm:text-base">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {content}
                   </ReactMarkdown>
                 </div>
               )}
             </div>
-            {!isThinking && <div className="flex gap-3 mt-2">
+            {!isThinking && <div className="mt-2 flex flex-wrap gap-x-3 gap-y-2">
               <button
                 onClick={handleCopy}
                 className="flex items-center gap-1 text-xs text-[#8e8ea0] hover:text-[#ececf1] transition-colors"

@@ -1,4 +1,5 @@
 import { findProviderAndModel } from '../config/models.js';
+import { shouldPrintProviderLog } from '../config/backend.js';
 
 const PROVIDER_API_KEY_ENV_VARS = {
   longcat: 'LONGCAT_API_KEY',
@@ -80,6 +81,22 @@ function buildHeaders(provider, providerConfig) {
   return headers;
 }
 
+function toLoggableHeaders(headers) {
+  if (!headers) {
+    return null;
+  }
+
+  if (typeof headers.entries === 'function') {
+    return Object.fromEntries(headers.entries());
+  }
+
+  return { ...headers };
+}
+
+function logProviderExchange(stage, payload) {
+  console.log(`[provider:${stage}] ${JSON.stringify(payload, null, 2)}`);
+}
+
 function parseChunk(chunk) {
   const lines = chunk.split('\n');
   let content = '';
@@ -123,53 +140,99 @@ export async function* streamCompletions(modelId, messages, options = {}) {
   const url = buildUrl(providerConfig.baseUrl);
   const payload = buildPayload(modelConfig, messages, options);
   const headers = buildHeaders(provider, providerConfig);
+  const shouldLog = shouldPrintProviderLog();
+  const requestStartedAt = Date.now();
+  let response = null;
+  let errorResponseBody = '';
+  let finalResponseContent = '';
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: headers,
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`HTTP ${response.status}: ${errorBody}`);
+  if (shouldLog) {
+    logProviderExchange('request', {
+      requestedModelId: modelId,
+      provider,
+      resolvedModelId: modelConfig.id,
+      url,
+      headers,
+      payload,
+    });
   }
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
   try {
-    while (true) {
-      const { done, value } = await reader.read();
+    response = await fetch(url, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(payload),
+    });
 
-      if (done) {
-        if (buffer) {
-          const parsed = parseChunk(buffer);
+    if (!response.ok) {
+      errorResponseBody = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorResponseBody}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('Upstream response body is empty');
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          if (buffer) {
+            const parsed = parseChunk(buffer);
+            if (parsed.content) {
+              finalResponseContent += parsed.content;
+              yield parsed.content;
+            }
+          }
+          break;
+        }
+
+        const decodedChunk = decoder.decode(value, { stream: true });
+        buffer += decodedChunk;
+
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const parsed = parseChunk(line);
+          if (parsed.done) {
+            return;
+          }
           if (parsed.content) {
+            finalResponseContent += parsed.content;
             yield parsed.content;
           }
         }
-        break;
       }
-
-      buffer += decoder.decode(value, { stream: true });
-
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        const parsed = parseChunk(line);
-        if (parsed.done) {
-          return;
-        }
-        if (parsed.content) {
-          yield parsed.content;
-        }
-      }
+    } finally {
+      reader.releaseLock();
     }
   } finally {
-    reader.releaseLock();
+    if (shouldLog) {
+      logProviderExchange('response', {
+        requestedModelId: modelId,
+        provider,
+        resolvedModelId: modelConfig.id,
+        url,
+        durationMs: Date.now() - requestStartedAt,
+        response: response
+          ? {
+              ok: response.ok,
+              status: response.status,
+              statusText: response.statusText,
+              headers: toLoggableHeaders(response.headers),
+              ...(response.ok
+                ? (finalResponseContent ? { finalContent: finalResponseContent } : {})
+                : (errorResponseBody ? { errorBody: errorResponseBody } : {})),
+            }
+          : null,
+      });
+    }
   }
 }
 
