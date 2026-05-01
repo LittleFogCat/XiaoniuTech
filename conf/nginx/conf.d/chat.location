@@ -15,5 +15,5 @@ location /api {
 }
 
 location /chat {
-    index  index.html;
+    try_files $uri $uri/ /index.html;
 }

@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
-import ChatMessage from './components/ChatMessage';
-import ChatInput from './components/ChatInput';
-import ModelSelect from './components/ModelSelect';
-import Sidebar from './components/Sidebar';
-import Login from './components/Login';
-import { fetchModels, streamChat, fetchChats, fetchChat, createChat, updateChat, deleteChat } from './services/api';
-import * as mock from './services/mock';
+import { useEffect, useRef, useState } from 'react';
+import ChatMessage from '../components/ChatMessage';
+import ChatInput from '../components/ChatInput';
+import ModelSelect from '../components/ModelSelect';
+import Sidebar from '../components/Sidebar';
+import Login from '../components/Login';
+import { fetchModels, streamChat, fetchChats, fetchChat, createChat, updateChat, deleteChat } from '../services/api';
+import * as mock from '../services/mock';
 
 const USE_MOCK = false;
 const GUEST_MODE = 'guest';
@@ -56,7 +56,7 @@ function normalizeModelId(modelId, models, fallback = '') {
   return fallback || modelId;
 }
 
-export default function App() {
+export default function ChatPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authMode, setAuthMode] = useState('user');
   const [hasCheckedLogin, setHasCheckedLogin] = useState(false);
@@ -72,6 +72,10 @@ export default function App() {
   const messagesEndRef = useRef(null);
   const safeMessages = Array.isArray(currentChat?.messages) ? currentChat.messages : [];
   const isGuest = authMode === GUEST_MODE;
+
+  useEffect(() => {
+    document.title = 'XN Chat';
+  }, []);
 
   const handleLogin = (mode = 'user') => {
     setAuthMode(mode);
@@ -100,10 +104,10 @@ export default function App() {
 
   useEffect(() => {
     if (!hasCheckedLogin || !isLoggedIn) return;
-    
+
     setLoadError(null);
     setGuestLimitNotice('');
-    
+
     if (USE_MOCK) {
       setModels(mock.getModels());
       const loadedChats = mock.getChats();
@@ -114,15 +118,15 @@ export default function App() {
       const modelPromise = fetchModels();
       const chatPromise = isGuest ? Promise.resolve(loadGuestChats()) : fetchChats();
       Promise.all([modelPromise, chatPromise]).then(([modelData, chatList]) => {
-        const models = modelData.models;
+        const availableModels = modelData.models;
         const defaultModel = modelData.defaultModel;
-        const fallbackModel = defaultModel || models[0]?.id || '';
+        const fallbackModel = defaultModel || availableModels[0]?.id || '';
         const normalizedChats = chatList.map(chat => ({
           ...chat,
-          model: normalizeModelId(chat.model, models, fallbackModel),
+          model: normalizeModelId(chat.model, availableModels, fallbackModel),
         }));
 
-        setModels(models);
+        setModels(availableModels);
         setChats(normalizedChats);
         setCurrentChat(null);
         setSelectedModel(fallbackModel);
@@ -278,7 +282,7 @@ export default function App() {
 
     try {
       let fullContent = '';
-      const streamFn = USE_MOCK 
+      const streamFn = USE_MOCK
         ? () => mock.streamChatMock(effectiveModel, newMessages)
         : () => streamChat(effectiveModel, newMessages);
 
@@ -286,31 +290,31 @@ export default function App() {
         fullContent += chunk;
         setCurrentChat(prev => {
           if (!prev) return prev;
-          const msgs = [...prev.messages];
-          const lastMsg = msgs[msgs.length - 1];
+          const nextMessages = [...prev.messages];
+          const lastMsg = nextMessages[nextMessages.length - 1];
           if (lastMsg && lastMsg.role === 'assistant') {
             lastMsg.content = fullContent;
             lastMsg.thinking = false;
           } else {
-            msgs.push({ role: 'assistant', content: fullContent, thinking: false });
+            nextMessages.push({ role: 'assistant', content: fullContent, thinking: false });
           }
-          return { ...prev, messages: msgs };
+          return { ...prev, messages: nextMessages };
         });
       }
       setCurrentChat(prev => {
         if (!prev) return prev;
-        const msgs = [...prev.messages];
-        const lastMsg = msgs[msgs.length - 1];
+        const nextMessages = [...prev.messages];
+        const lastMsg = nextMessages[nextMessages.length - 1];
         if (lastMsg && lastMsg.role === 'assistant') {
           lastMsg.thinking = false;
         }
-        return { ...prev, messages: msgs };
+        return { ...prev, messages: nextMessages };
       });
 
       if (USE_MOCK) {
         const chatId = currentChat?.id || mock.getChats()[0]?.id;
         const title = content.slice(0, 20) + (content.length > 20 ? '...' : '');
-        mock.updateChat(chatId, { 
+        mock.updateChat(chatId, {
           title: currentChat?.title || title,
           messages: [...newMessages, { role: 'assistant', content: fullContent }],
           model: effectiveModel,
@@ -365,7 +369,6 @@ export default function App() {
             if (!is404Error(error)) {
               throw error;
             }
-            // Backend chat memory may be cleared after restart; recreate and continue.
             const recreatedChat = await createChat({
               title: currentChat?.title || title,
               model: effectiveModel,
@@ -380,14 +383,14 @@ export default function App() {
       console.error('Chat error:', error);
       setCurrentChat(prev => {
         if (!prev) return prev;
-        const msgs = [...prev.messages];
-        const lastMsg = msgs[msgs.length - 1];
+        const nextMessages = [...prev.messages];
+        const lastMsg = nextMessages[nextMessages.length - 1];
         if (lastMsg && lastMsg.role === 'assistant') {
           lastMsg.content = `错误: ${error.message}`;
         } else {
-          msgs.push({ role: 'assistant', content: `错误: ${error.message}` });
+          nextMessages.push({ role: 'assistant', content: `错误: ${error.message}` });
         }
-        return { ...prev, messages: msgs };
+        return { ...prev, messages: nextMessages };
       });
     } finally {
       setIsLoading(false);
@@ -433,51 +436,49 @@ export default function App() {
     const effectiveModel = normalizeModelId(selectedModel, models, selectedModel);
     const userMessageIndex = assistantIndex - 1;
     if (userMessageIndex < 0 || currentChat.messages[userMessageIndex].role !== 'user') return;
-    
-    const userMessage = currentChat.messages[userMessageIndex];
-    const msgs = currentChat.messages.slice(0, assistantIndex);
+
+    const nextMessages = currentChat.messages.slice(0, assistantIndex);
     const waitingAssistant = { role: 'assistant', content: '', thinking: true };
-    setCurrentChat({ ...currentChat, messages: [...msgs, waitingAssistant] });
+    setCurrentChat({ ...currentChat, messages: [...nextMessages, waitingAssistant] });
     setIsLoading(true);
 
     try {
       let fullContent = '';
-      const newMessages = msgs;
-      const streamFn = USE_MOCK 
-        ? () => mock.streamChatMock(effectiveModel, newMessages)
-        : () => streamChat(effectiveModel, newMessages);
+      const streamFn = USE_MOCK
+        ? () => mock.streamChatMock(effectiveModel, nextMessages)
+        : () => streamChat(effectiveModel, nextMessages);
 
       for await (const chunk of streamFn()) {
         fullContent += chunk;
         setCurrentChat(prev => {
           if (!prev) return prev;
-          const msgs = [...prev.messages];
-          const lastMsg = msgs[msgs.length - 1];
+          const regeneratedMessages = [...prev.messages];
+          const lastMsg = regeneratedMessages[regeneratedMessages.length - 1];
           if (lastMsg && lastMsg.role === 'assistant') {
             lastMsg.content = fullContent;
             lastMsg.thinking = false;
           } else {
-            msgs.push({ role: 'assistant', content: fullContent, thinking: false });
+            regeneratedMessages.push({ role: 'assistant', content: fullContent, thinking: false });
           }
-          return { ...prev, messages: msgs };
+          return { ...prev, messages: regeneratedMessages };
         });
       }
       setCurrentChat(prev => {
         if (!prev) return prev;
-        const msgs = [...prev.messages];
-        const lastMsg = msgs[msgs.length - 1];
+        const regeneratedMessages = [...prev.messages];
+        const lastMsg = regeneratedMessages[regeneratedMessages.length - 1];
         if (lastMsg && lastMsg.role === 'assistant') {
           lastMsg.thinking = false;
         }
-        return { ...prev, messages: msgs };
+        return { ...prev, messages: regeneratedMessages };
       });
 
       if (USE_MOCK) {
-        mock.updateChat(currentChat.id, { 
-          messages: [...msgs, { role: 'assistant', content: fullContent }],
+        mock.updateChat(currentChat.id, {
+          messages: [...nextMessages, { role: 'assistant', content: fullContent }],
         });
       } else if (isGuest) {
-        const updatedMessages = [...msgs, { role: 'assistant', content: fullContent }];
+        const updatedMessages = [...nextMessages, { role: 'assistant', content: fullContent }];
         const updated = upsertGuestChat(currentChat.id, {
           title: currentChat.title || '新对话',
           model: effectiveModel,
@@ -485,7 +486,7 @@ export default function App() {
         });
         if (updated) setCurrentChat(updated);
       } else {
-        const updatedMessages = [...msgs, { role: 'assistant', content: fullContent }];
+        const updatedMessages = [...nextMessages, { role: 'assistant', content: fullContent }];
         try {
           await updateChat(currentChat.id, {
             messages: updatedMessages,
@@ -508,8 +509,8 @@ export default function App() {
     } finally {
       setIsLoading(false);
     }
-};
-  
+  };
+
   if (!hasCheckedLogin) {
     return (
       <div className="min-h-screen bg-[#343541] flex items-center justify-center">
@@ -517,11 +518,11 @@ export default function App() {
       </div>
     );
   }
-  
+
   if (!isLoggedIn) {
     return <Login onLogin={handleLogin} />;
   }
-  
+
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-[#343541]">
       <Sidebar
@@ -621,9 +622,9 @@ export default function App() {
           ) : (
             <div className="mx-auto w-full max-w-4xl pb-4">
               {safeMessages.map((msg, i) => (
-                <ChatMessage 
-                  key={i} 
-                  role={msg.role} 
+                <ChatMessage
+                  key={i}
+                  role={msg.role}
                   content={msg.content}
                   isThinking={msg.role === 'assistant' && msg.thinking}
                   onRegenerate={msg.role === 'assistant' && !msg.thinking ? () => handleRegenerate(i) : null}

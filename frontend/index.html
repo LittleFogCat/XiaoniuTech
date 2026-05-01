@@ -1,99 +1,12 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Xiaoniu Tech</title>
-  <link rel="stylesheet" href="css/style.css">
-</head>
-<body>
-  <main class="home-page">
-    <section class="hero">
-      <div class="hero-layout">
-        <div class="hero-main">
-          <p class="eyebrow">Personal Hub</p>
-          <h1>Xiaoniu Tech</h1>
-          <p class="subtitle">个人主页与项目入口，快速进入我正在构建和维护的内容。</p>
-          <div class="hero-actions">
-            <a class="btn btn-primary" href="/chat">进入 Chat</a>
-            <a class="btn btn-secondary" href="/blog">查看博客</a>
-            <a class="btn btn-secondary" href="https://github.com/LittleFogCat" target="_blank" rel="noopener noreferrer"> Github </a>
-          </div>
-        </div>
-
-        <div class="contact-panel" aria-label="联系方式">
-          <p class="contact-title">Contact</p>
-          <div class="contact-list">
-            <a class="contact-chip" href="mailto:littlefogcat@foxmail.com" aria-label="Mail: littlefogcat@foxmail.com" title="Mail: littlefogcat@foxmail.com">
-              <img class="contact-icon" src="image/mail.svg" alt="">
-            </a>
-            <a class="contact-chip qq-chip" href="tencent://message/?uin=475108923" aria-label="QQ: 475108923" title="QQ: 475108923">
-              <img class="contact-icon contact-icon-qq" src="image/qq.svg" alt="">
-            </a>
-            <div class="wechat-popover-wrap">
-              <button class="contact-chip contact-chip-button" id="wechatTrigger" type="button" aria-label="微信号: lgfpbwqlbwbxnll" title="微信号: lgfpbwqlbwbxnll">
-                <img class="contact-icon" src="image/wechat.svg" alt="">
-              </button>
-              <div class="wechat-popover" id="wechatPopover" aria-hidden="true">
-                <img src="image/wechat_add.jpg" alt="微信添加二维码">
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="link-grid" aria-label="站点入口">
-      <a class="link-card" href="/blog">
-        <h2>博客</h2>
-        <p>技术笔记、想法整理和实践总结。</p>
-      </a>
-      <a class="link-card" href="/chat">
-        <h2>Chat</h2>
-        <p>AI 聊天工具入口，体验实时对话能力。</p>
-      </a>
-      <a class="link-card" href="https://github.com/LittleFogCat" target="_blank" rel="noopener noreferrer">
-        <h2>Github</h2>
-        <p>开源项目、代码仓库与持续更新。</p>
-      </a>
-      <a class="link-card" href="/games">
-        <h2>小游戏</h2>
-        <p>轻松有趣的小作品和实验玩法。（施工中）</p>
-      </a>
-    </section>
-  </main>
-
-  <footer class="site-footer">
-    <p>Built by LittleFogCat</p>
-  </footer>
-
-  <script>
-    (function () {
-      const trigger = document.getElementById("wechatTrigger");
-      const popover = document.getElementById("wechatPopover");
-      if (!trigger || !popover) return;
-
-      function closePopover() {
-        popover.classList.remove("is-open");
-        popover.setAttribute("aria-hidden", "true");
-      }
-
-      trigger.addEventListener("click", function (event) {
-        event.stopPropagation();
-        popover.classList.toggle("is-open");
-        popover.setAttribute("aria-hidden", popover.classList.contains("is-open") ? "false" : "true");
-      });
-
-      document.addEventListener("click", function (event) {
-        if (!popover.contains(event.target) && event.target !== trigger) {
-          closePopover();
-        }
-      });
-
-      document.addEventListener("keydown", function (event) {
-        if (event.key === "Escape") closePopover();
-      });
-    })();
-  </script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Xiaoniu Tech</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>

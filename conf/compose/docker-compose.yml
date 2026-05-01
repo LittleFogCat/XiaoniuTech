@@ -7,7 +7,7 @@ services:
       - "443:443"
     volumes:
       - ./conf/nginx:/etc/nginx:ro  # 挂载自定义配置
-      - ./www:/usr/share/nginx/html:ro        # 挂载网页内容
+      - ./frontend/dist:/usr/share/nginx/html:ro        # 挂载统一前端构建产物
     restart: always
     networks:
       - niu-network
