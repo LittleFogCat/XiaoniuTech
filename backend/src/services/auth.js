@@ -1,6 +1,10 @@
 import crypto from 'crypto';
 
 const DEFAULT_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const PASSWORD_SALT_BYTES = 16;
+const PASSWORD_KEYLEN = 64;
+const PASSWORD_DIGEST = 'sha512';
+const EMAIL_CODE_LENGTH = 6;
 
 function getAuthSecret() {
   return process.env.CHAT_AUTH_SECRET || 'chat-auth-secret-change-me';
@@ -71,4 +75,49 @@ export function readBearerToken(req) {
     return null;
   }
   return token;
+}
+
+function scryptAsync(password, salt) {
+  return new Promise((resolve, reject) => {
+    crypto.scrypt(password, salt, PASSWORD_KEYLEN, (error, derivedKey) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve(derivedKey.toString('hex'));
+    });
+  });
+}
+
+export async function hashPassword(password) {
+  const salt = crypto.randomBytes(PASSWORD_SALT_BYTES).toString('hex');
+  const hash = await scryptAsync(password, salt);
+  return `scrypt:${PASSWORD_DIGEST}:${salt}:${hash}`;
+}
+
+export async function verifyPassword(password, passwordHash) {
+  if (!passwordHash || typeof passwordHash !== 'string') {
+    return false;
+  }
+
+  const [algorithm, digest, salt, storedHash] = passwordHash.split(':');
+  if (algorithm !== 'scrypt' || digest !== PASSWORD_DIGEST || !salt || !storedHash) {
+    return false;
+  }
+
+  const computedHash = await scryptAsync(password, salt);
+  const providedBuffer = Buffer.from(storedHash, 'hex');
+  const computedBuffer = Buffer.from(computedHash, 'hex');
+
+  if (providedBuffer.length !== computedBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(providedBuffer, computedBuffer);
+}
+
+export function generateEmailVerificationCode() {
+  const max = 10 ** EMAIL_CODE_LENGTH;
+  const value = crypto.randomInt(0, max);
+  return String(value).padStart(EMAIL_CODE_LENGTH, '0');
 }

@@ -19,12 +19,54 @@ export async function login(username, password) {
   const res = await fetch(`${API_BASE}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ email: username, password }),
   });
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(data.error || `Login failed: ${res.status}`);
+  }
+
+  return {
+    token: data.token,
+    user: data.user,
+  };
+}
+
+export async function fetchRegisterCaptcha() {
+  const res = await fetch(`${API_BASE}/register/captcha`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || `Failed to fetch captcha: ${res.status}`);
+  }
+  return data;
+}
+
+export async function requestRegistration(email, password, captchaId, captchaAnswer) {
+  const res = await fetch(`${API_BASE}/register/request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, captchaId, captchaAnswer }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || `Registration request failed: ${res.status}`);
+  }
+
+  return data;
+}
+
+export async function verifyRegistration(email, code) {
+  const res = await fetch(`${API_BASE}/register/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || `Registration verification failed: ${res.status}`);
   }
 
   return {

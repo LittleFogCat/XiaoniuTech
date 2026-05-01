@@ -10,9 +10,10 @@
     "migrate:legacy-chats": "node src/scripts/migrateLegacyChats.js"
   },
   "dependencies": {
-    "express": "^4.21.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "mongoose": "^8.8.0"
+    "express": "^4.21.0",
+    "mongoose": "^8.8.0",
+    "nodemailer": "^8.0.7"
   }
 }
