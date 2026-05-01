@@ -30,7 +30,7 @@ export function loadModelsConfig() {
 
   if (!fs.existsSync(finalPath)) {
     // fallback to repository bundled models.json
-    const bundled = path.resolve(PROJECT_ROOT, 'conf', 'models.json');
+    const bundled = path.resolve(PROJECT_ROOT, 'conf', 'backend', 'models.json');
     if (fs.existsSync(bundled)) {
       finalPath = bundled;
     }
