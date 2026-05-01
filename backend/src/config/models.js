@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const BACKEND_ROOT = path.resolve(__dirname, '../..');
+const BACKEND_CONFIG_DIR = '/app/config';
 
 let modelsConfig = null;
 
@@ -15,7 +16,7 @@ function resolveModelsConfigPath() {
       ? configuredPath
       : path.resolve(BACKEND_ROOT, configuredPath);
   }
-  return path.join(BACKEND_ROOT, 'files', 'models.json');
+  return path.join(BACKEND_CONFIG_DIR, 'models.json');
 }
 
 export function loadModelsConfig() {
@@ -24,8 +25,22 @@ export function loadModelsConfig() {
   }
 
   const configPath = resolveModelsConfigPath();
-  const content = fs.readFileSync(configPath, 'utf-8');
-  modelsConfig = JSON.parse(content);
+  let finalPath = configPath;
+
+  if (!fs.existsSync(finalPath)) {
+    // fallback to repository bundled models.json
+    const bundled = path.resolve(BACKEND_ROOT, 'files', 'models.json');
+    if (fs.existsSync(bundled)) {
+      finalPath = bundled;
+    }
+  }
+
+  const content = fs.readFileSync(finalPath, 'utf-8');
+  try {
+    modelsConfig = JSON.parse(content);
+  } catch (err) {
+    throw new Error(`Failed to parse models config at ${finalPath}: ${err.message}`);
+  }
   return modelsConfig;
 }
 

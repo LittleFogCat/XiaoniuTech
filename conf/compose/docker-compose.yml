@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   nginx:
     image: nginx:latest
@@ -9,8 +7,7 @@ services:
       - "443:443"
     volumes:
       - ./conf/nginx:/etc/nginx:ro  # 挂载自定义配置
-      - ./frontend:/usr/share/nginx/html:ro   # 挂载主页静态内容 (root)
-      - ./frontend/chat/dist:/usr/share/nginx/html/chat:ro  # 挂载聊天前端构建产物
+      - ./www:/usr/share/nginx/html:ro        # 挂载网页内容
     restart: always
     networks:
       - niu-network
@@ -34,11 +31,11 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ./data/backend
       dockerfile: Dockerfile
     container_name: backend
     env_file:
-      - ../../backend/.env
+      - ./.env
     ports:
       - "3001:3001"
     environment:
@@ -48,6 +45,8 @@ services:
       mongodb:
         condition: service_healthy
     restart: unless-stopped
+    volumes:
+      - ./conf/backend:/app/config:ro
     networks:
       - niu-network
 
