@@ -7,6 +7,12 @@ import {
 } from '../services/api';
 
 const LOGIN_IDENTITY_KEY = 'login_username';
+const FIELD_LABEL_CLASS = 'mb-2 block text-sm font-medium text-slate-300/85';
+const INPUT_CLASS = 'w-full rounded-2xl border border-slate-600/60 bg-slate-800/55 px-4 py-3 text-slate-50 placeholder:text-slate-400/70 outline-none transition-all focus:border-sky-500/50 focus:bg-slate-800/75';
+const ERROR_CLASS = 'rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3';
+const PRIMARY_BUTTON_CLASS = 'flex w-full items-center justify-center gap-2 rounded-2xl border border-sky-400/20 bg-sky-500/90 py-3 font-medium text-white transition-all duration-200 hover:bg-sky-400 disabled:cursor-not-allowed disabled:border-sky-500/10 disabled:bg-sky-500/45';
+const SECONDARY_BUTTON_CLASS = 'w-full rounded-2xl border border-slate-600/60 bg-slate-800/50 py-3 font-medium text-slate-100 transition-all duration-200 hover:bg-slate-700/65';
+const TABS_CONTAINER_CLASS = 'mb-6 grid grid-cols-2 rounded-2xl border border-slate-700/60 bg-slate-900/35 p-1';
 
 function getStoredIdentity() {
   return localStorage.getItem(LOGIN_IDENTITY_KEY) || '';
@@ -140,26 +146,31 @@ export default function Login({ onLogin }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#343541] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-[#202123] rounded-2xl p-8 shadow-2xl">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-[#ececf1] mb-2">XN Chat</h1>
-            <p className="text-[#8e8ea0]">{isRegisterMode ? '注册新账号并完成邮箱验证' : '欢迎回来，请登录'}</p>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#162033] p-4">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.12),transparent_28%),radial-gradient(circle_at_82%_14%,rgba(99,102,241,0.10),transparent_24%),radial-gradient(circle_at_50%_100%,rgba(30,41,59,0.24),transparent_36%)]" />
+        <div className="absolute inset-0 opacity-[0.08] [background-image:linear-gradient(rgba(148,163,184,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.12)_1px,transparent_1px)] [background-size:48px_48px]" />
+      </div>
+
+      <div className="relative z-10 w-full max-w-md">
+        <div className="rounded-[30px] border border-slate-700/60 bg-[linear-gradient(180deg,rgba(30,41,59,0.92),rgba(15,23,42,0.94))] p-8 shadow-[0_24px_60px_rgba(15,23,42,0.22)] backdrop-blur-xl">
+          <div className="mb-8 text-center">
+            <h1 className="mb-2 text-3xl font-bold text-slate-50">XN Chat</h1>
+            <p className="text-slate-300/70">{isRegisterMode ? '注册新账号并完成邮箱验证' : '欢迎回来，请登录'}</p>
           </div>
 
-          <div className="mb-6 grid grid-cols-2 rounded-lg bg-[#343541] p-1">
+          <div className={TABS_CONTAINER_CLASS}>
             <button
               type="button"
               onClick={() => switchMode('login')}
-              className={`rounded-md px-4 py-2 text-sm font-medium transition-all ${!isRegisterMode ? 'bg-[#19c37d] text-white' : 'text-[#8e8ea0] hover:text-[#ececf1]'}`}
+              className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${!isRegisterMode ? 'bg-sky-500/90 text-white shadow-[0_10px_24px_rgba(56,189,248,0.18)]' : 'text-slate-400 hover:text-slate-100'}`}
             >
               登录
             </button>
             <button
               type="button"
               onClick={() => switchMode('register')}
-              className={`rounded-md px-4 py-2 text-sm font-medium transition-all ${isRegisterMode ? 'bg-[#19c37d] text-white' : 'text-[#8e8ea0] hover:text-[#ececf1]'}`}
+              className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${isRegisterMode ? 'bg-sky-500/90 text-white shadow-[0_10px_24px_rgba(56,189,248,0.18)]' : 'text-slate-400 hover:text-slate-100'}`}
             >
               注册
             </button>
@@ -168,47 +179,47 @@ export default function Login({ onLogin }) {
           {!isRegisterMode && (
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-[#8e8ea0] mb-2">
+                <label className={FIELD_LABEL_CLASS}>
                   邮箱
                 </label>
                 <input
                   type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#343541] border border-[#3e3f4a] rounded-lg text-[#ececf1] placeholder-[#565869] focus:outline-none focus:border-[#19c37d] focus:ring-1 focus:ring-[#19c37d] transition-all"
+                  className={INPUT_CLASS}
                   placeholder="请输入邮箱"
                   autoComplete="email"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#8e8ea0] mb-2">
+                <label className={FIELD_LABEL_CLASS}>
                   密码
                 </label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#343541] border border-[#3e3f4a] rounded-lg text-[#ececf1] placeholder-[#565869] focus:outline-none focus:border-[#19c37d] focus:ring-1 focus:ring-[#19c37d] transition-all"
+                  className={INPUT_CLASS}
                   placeholder="请输入密码"
                   autoComplete="current-password"
                 />
               </div>
 
               {error && (
-                <div className="bg-red-500/10 border border-red-500/50 rounded-lg px-4 py-3">
-                  <p className="text-red-400 text-sm">{error}</p>
+                <div className={ERROR_CLASS}>
+                  <p className="text-sm text-red-400">{error}</p>
                 </div>
               )}
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 bg-[#19c37d] hover:bg-[#18a86d] disabled:bg-[#19c37d]/50 text-white font-medium rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+                className={PRIMARY_BUTTON_CLASS}
               >
                 {isLoading ? (
                   <>
-                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
@@ -222,7 +233,7 @@ export default function Login({ onLogin }) {
               <button
                 type="button"
                 onClick={handleGuestAccess}
-                className="w-full py-3 bg-[#343541] hover:bg-[#3e3f4a] text-[#ececf1] font-medium rounded-lg transition-all duration-200 border border-[#4e4f56]"
+                className={SECONDARY_BUTTON_CLASS}
               >
                 游客访问
               </button>
@@ -232,69 +243,69 @@ export default function Login({ onLogin }) {
           {isRegisterMode && registerStep === 'form' && (
             <form onSubmit={handleRequestRegistration} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-[#8e8ea0] mb-2">
+                <label className={FIELD_LABEL_CLASS}>
                   邮箱
                 </label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#343541] border border-[#3e3f4a] rounded-lg text-[#ececf1] placeholder-[#565869] focus:outline-none focus:border-[#19c37d] focus:ring-1 focus:ring-[#19c37d] transition-all"
+                  className={INPUT_CLASS}
                   placeholder="请输入邮箱"
                   autoComplete="email"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#8e8ea0] mb-2">
+                <label className={FIELD_LABEL_CLASS}>
                   密码
                 </label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#343541] border border-[#3e3f4a] rounded-lg text-[#ececf1] placeholder-[#565869] focus:outline-none focus:border-[#19c37d] focus:ring-1 focus:ring-[#19c37d] transition-all"
+                  className={INPUT_CLASS}
                   placeholder="请设置密码，至少 8 位"
                   autoComplete="new-password"
                 />
               </div>
 
-              <div className="rounded-lg border border-[#3e3f4a] bg-[#343541] p-4">
+              <div className="rounded-[24px] border border-slate-700/60 bg-slate-900/30 p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-medium text-[#ececf1]">人机验证</p>
-                    <p className="text-xs text-[#8e8ea0]">请回答下面的算术题</p>
+                    <p className="text-sm font-medium text-slate-100">人机验证</p>
+                    <p className="text-xs text-slate-400/80">请回答下面的算术题</p>
                   </div>
                   <button
                     type="button"
                     onClick={loadCaptcha}
-                    className="text-sm text-[#19c37d] hover:text-[#33d18f]"
+                    className="text-sm text-sky-300 transition hover:text-sky-200"
                   >
                     换一题
                   </button>
                 </div>
-                <div className="mb-3 rounded-md bg-[#202123] px-4 py-3 text-center text-lg font-semibold tracking-wide text-[#ececf1]">
+                <div className="mb-3 rounded-2xl border border-slate-700/60 bg-slate-800/45 px-4 py-3 text-center text-lg font-semibold tracking-wide text-slate-50">
                   {captcha?.question || '加载中...'}
                 </div>
                 <input
                   type="text"
                   value={captchaAnswer}
                   onChange={(e) => setCaptchaAnswer(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#202123] border border-[#3e3f4a] rounded-lg text-[#ececf1] placeholder-[#565869] focus:outline-none focus:border-[#19c37d] focus:ring-1 focus:ring-[#19c37d] transition-all"
+                  className={INPUT_CLASS}
                   placeholder="请输入答案"
                 />
               </div>
 
               {error && (
-                <div className="bg-red-500/10 border border-red-500/50 rounded-lg px-4 py-3">
-                  <p className="text-red-400 text-sm">{error}</p>
+                <div className={ERROR_CLASS}>
+                  <p className="text-sm text-red-400">{error}</p>
                 </div>
               )}
 
               <button
                 type="submit"
                 disabled={isLoading || !captcha?.challengeId}
-                className="w-full py-3 bg-[#19c37d] hover:bg-[#18a86d] disabled:bg-[#19c37d]/50 text-white font-medium rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+                className={PRIMARY_BUTTON_CLASS}
               >
                 {isLoading ? '发送中...' : '发送邮箱验证码'}
               </button>
@@ -303,12 +314,12 @@ export default function Login({ onLogin }) {
 
           {isRegisterMode && registerStep === 'verify' && (
             <form onSubmit={handleVerifyRegistration} className="space-y-5">
-              <div className="rounded-lg border border-[#19c37d]/30 bg-[#19c37d]/10 px-4 py-3 text-sm text-[#b8f2d6]">
+              <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-sm text-sky-100">
                 {notice || `验证码已发送到 ${email}`}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[#8e8ea0] mb-2">
+                <label className={FIELD_LABEL_CLASS}>
                   邮箱验证码
                 </label>
                 <input
@@ -316,21 +327,21 @@ export default function Login({ onLogin }) {
                   inputMode="numeric"
                   value={verificationCode}
                   onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="w-full px-4 py-3 bg-[#343541] border border-[#3e3f4a] rounded-lg text-[#ececf1] placeholder-[#565869] focus:outline-none focus:border-[#19c37d] focus:ring-1 focus:ring-[#19c37d] transition-all tracking-[0.35em] text-center"
+                  className={`${INPUT_CLASS} text-center tracking-[0.35em]`}
                   placeholder="请输入 6 位验证码"
                 />
               </div>
 
               {error && (
-                <div className="bg-red-500/10 border border-red-500/50 rounded-lg px-4 py-3">
-                  <p className="text-red-400 text-sm">{error}</p>
+                <div className={ERROR_CLASS}>
+                  <p className="text-sm text-red-400">{error}</p>
                 </div>
               )}
 
               <button
                 type="submit"
                 disabled={isLoading || verificationCode.length !== 6}
-                className="w-full py-3 bg-[#19c37d] hover:bg-[#18a86d] disabled:bg-[#19c37d]/50 text-white font-medium rounded-lg transition-all duration-200"
+                className={PRIMARY_BUTTON_CLASS}
               >
                 {isLoading ? '验证中...' : '完成注册'}
               </button>
@@ -342,7 +353,7 @@ export default function Login({ onLogin }) {
                   setNotice('');
                   setError('');
                 }}
-                className="w-full py-3 bg-[#343541] hover:bg-[#3e3f4a] text-[#ececf1] font-medium rounded-lg transition-all duration-200 border border-[#4e4f56]"
+                className={SECONDARY_BUTTON_CLASS}
               >
                 返回重新填写
               </button>
@@ -350,7 +361,7 @@ export default function Login({ onLogin }) {
           )}
         </div>
 
-        <p className="text-center mt-6 text-[#565869] text-sm">
+        <p className="mt-6 text-center text-sm text-slate-400/60">
           © 2026 XN Chat. All rights reserved.
         </p>
       </div>

@@ -1,6 +1,15 @@
 const API_BASE = '/api';
 const AUTH_TOKEN_KEY = 'auth_token';
 
+async function readJsonSafely(res) {
+  return res.json().catch(() => ({}));
+}
+
+async function throwRequestError(res, fallbackMessage) {
+  const data = await readJsonSafely(res);
+  throw new Error(data.error || `${fallbackMessage}: ${res.status}`);
+}
+
 function getAuthToken() {
   return localStorage.getItem(AUTH_TOKEN_KEY);
 }
@@ -22,7 +31,7 @@ export async function login(username, password) {
     body: JSON.stringify({ email: username, password }),
   });
 
-  const data = await res.json().catch(() => ({}));
+  const data = await readJsonSafely(res);
   if (!res.ok) {
     throw new Error(data.error || `Login failed: ${res.status}`);
   }
@@ -35,7 +44,7 @@ export async function login(username, password) {
 
 export async function fetchRegisterCaptcha() {
   const res = await fetch(`${API_BASE}/register/captcha`);
-  const data = await res.json().catch(() => ({}));
+  const data = await readJsonSafely(res);
   if (!res.ok) {
     throw new Error(data.error || `Failed to fetch captcha: ${res.status}`);
   }
@@ -49,7 +58,7 @@ export async function requestRegistration(email, password, captchaId, captchaAns
     body: JSON.stringify({ email, password, captchaId, captchaAnswer }),
   });
 
-  const data = await res.json().catch(() => ({}));
+  const data = await readJsonSafely(res);
   if (!res.ok) {
     throw new Error(data.error || `Registration request failed: ${res.status}`);
   }
@@ -64,7 +73,7 @@ export async function verifyRegistration(email, code) {
     body: JSON.stringify({ email, code }),
   });
 
-  const data = await res.json().catch(() => ({}));
+  const data = await readJsonSafely(res);
   if (!res.ok) {
     throw new Error(data.error || `Registration verification failed: ${res.status}`);
   }
@@ -78,10 +87,19 @@ export async function verifyRegistration(email, code) {
 export async function fetchModels() {
   const res = await fetch(`${API_BASE}/models`);
   if (!res.ok) {
-    throw new Error(`Failed to fetch models: ${res.status}`);
+    await throwRequestError(res, 'Failed to fetch models');
   }
   const data = await res.json();
   return { models: data.models, defaultModel: data.defaultModel };
+}
+
+export async function fetchIdentities() {
+  const res = await fetch(`${API_BASE}/identities`);
+  if (!res.ok) {
+    await throwRequestError(res, 'Failed to fetch identities');
+  }
+  const data = await res.json();
+  return data.identities || [];
 }
 
 export async function fetchChats() {
@@ -89,7 +107,7 @@ export async function fetchChats() {
     headers: getAuthHeaders(),
   });
   if (!res.ok) {
-    throw new Error(`Failed to fetch chats: ${res.status}`);
+    await throwRequestError(res, 'Failed to fetch chats');
   }
   const data = await res.json();
   return data.chats;
@@ -100,7 +118,7 @@ export async function fetchChat(chatId) {
     headers: getAuthHeaders(),
   });
   if (!res.ok) {
-    throw new Error(`Failed to fetch chat: ${res.status}`);
+    await throwRequestError(res, 'Failed to fetch chat');
   }
   const data = await res.json();
   return data.chat;
@@ -113,7 +131,7 @@ export async function createChat(data = {}) {
     body: JSON.stringify(data),
   });
   if (!res.ok) {
-    throw new Error(`Failed to create chat: ${res.status}`);
+    await throwRequestError(res, 'Failed to create chat');
   }
   const result = await res.json();
   return result.chat;
@@ -126,7 +144,7 @@ export async function updateChat(chatId, data = {}) {
     body: JSON.stringify(data),
   });
   if (!res.ok) {
-    throw new Error(`Failed to update chat: ${res.status}`);
+    await throwRequestError(res, 'Failed to update chat');
   }
   const result = await res.json();
   return result.chat;
@@ -138,7 +156,7 @@ export async function deleteChat(chatId) {
     headers: getAuthHeaders(),
   });
   if (!res.ok) {
-    throw new Error(`Failed to delete chat: ${res.status}`);
+    await throwRequestError(res, 'Failed to delete chat');
   }
   return true;
 }
@@ -152,13 +170,13 @@ export async function* streamChat(model, messages, options = {}) {
     body: JSON.stringify({
       model,
       messages,
+      chatTarget: options.chatTarget || null,
       ...options,
     }),
   });
 
   if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.error || `Chat failed: ${res.status}`);
+    await throwRequestError(res, 'Chat failed');
   }
 
   const reader = res.body.getReader();

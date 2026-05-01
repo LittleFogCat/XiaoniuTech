@@ -1,13 +1,13 @@
 {
-  "default": "openrouter/z-ai/glm-4.5-air:free",
+  "default": "deepseek/deepseek-v4-flash",
   "longcat": {
     "baseUrl": "https://api.longcat.chat/openai/v1",
     "api": "openai-completions",
     "authHeader": true,
     "models": [
       {
-        "id": "LongCat-Flash-Thinking-2601",
-        "name": "LongCat-Flash-Thinking-2601",
+        "id": "LongCat-Flash-Chat",
+        "name": "LongCat-Flash-Chat",
         "reasoning": false,
         "input": ["text"],
         "contextWindow": 200000,
@@ -26,6 +26,11 @@
       {
         "id": "deepseek-v4-pro",
         "name": "deepseek-v4-pro",
+        "input": ["text"]
+      },
+      {
+        "id": "deepseek-v4-flash",
+        "name": "deepseek-v4-flash",
         "input": ["text"]
       }
     ]

@@ -1,23 +1,45 @@
 import { useState, useRef, useEffect } from 'react';
 
-export default function ChatInput({ onSend, disabled }) {
+const MIN_TEXTAREA_HEIGHT = 54;
+const MAX_TEXTAREA_HEIGHT = 200;
+
+export default function ChatInput({ onSend, disabled, layout = 'docked', autoFocus = false }) {
   const [input, setInput] = useState('');
+  const [textareaHeight, setTextareaHeight] = useState(MIN_TEXTAREA_HEIGHT);
   const textareaRef = useRef(null);
 
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 240) + 'px';
+      const nextHeight = Math.min(
+        Math.max(textareaRef.current.scrollHeight, MIN_TEXTAREA_HEIGHT),
+        MAX_TEXTAREA_HEIGHT
+      );
+      textareaRef.current.style.height = `${nextHeight}px`;
+      setTextareaHeight(nextHeight);
     }
   }, [input]);
+
+  useEffect(() => {
+    if (!autoFocus || !textareaRef.current) {
+      return;
+    }
+
+    const handle = requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+    });
+
+    return () => cancelAnimationFrame(handle);
+  }, [autoFocus]);
 
   const handleSubmit = () => {
     if (!input.trim() || disabled) return;
     onSend(input.trim());
     setInput('');
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${MIN_TEXTAREA_HEIGHT}px`;
     }
+    setTextareaHeight(MIN_TEXTAREA_HEIGHT);
   };
 
   const handleKeyDown = (e) => {
@@ -27,10 +49,14 @@ export default function ChatInput({ onSend, disabled }) {
     }
   };
 
+  const isCentered = layout === 'centered';
+  const isMultiline = textareaHeight > MIN_TEXTAREA_HEIGHT + 4;
+
   return (
-    <div className="bg-[#343541] pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:pb-6">
-      <div className="mx-auto max-w-4xl px-3 pt-3 sm:px-5 sm:pt-4">
-        <div className="relative flex items-center rounded-[1.25rem] border border-[#4e4f56] bg-[#202123] shadow-lg focus-within:border-[#19c37d]">
+    <div className={`w-full ${isCentered ? 'max-w-3xl' : 'max-w-5xl'}`}>
+      <div className={`relative overflow-hidden rounded-[24px] border border-slate-700/70 bg-[linear-gradient(180deg,rgba(28,37,54,0.96),rgba(21,29,44,0.94))] shadow-[0_12px_26px_rgba(15,23,42,0.14)] transition duration-300 focus-within:border-sky-500/45 focus-within:shadow-[0_14px_34px_rgba(37,99,235,0.10)] sm:rounded-[28px] sm:shadow-[0_16px_34px_rgba(15,23,42,0.16)] sm:focus-within:shadow-[0_16px_40px_rgba(37,99,235,0.10)] ${isCentered ? 'backdrop-blur-xl' : ''}`}>
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/30 to-transparent" />
+        <div className={`relative flex gap-2.5 px-2.5 py-2 sm:gap-3 sm:px-4 sm:py-2.5 ${isMultiline ? 'items-end' : 'items-center'}`}>
           <textarea
             ref={textareaRef}
             value={input}
@@ -39,23 +65,23 @@ export default function ChatInput({ onSend, disabled }) {
             placeholder="发送消息..."
             disabled={disabled}
             rows={1}
-            className="w-full resize-none overflow-y-auto bg-transparent px-4 py-3 pr-12 text-sm text-[#ececf1] outline-none placeholder-[#8e8ea0] sm:px-5 sm:pr-14 sm:text-base"
-            style={{ minHeight: '56px', maxHeight: '240px', height: '56px', lineHeight: '1.5' }}
+            className="w-full resize-none overflow-y-auto bg-transparent px-1.5 py-[11px] text-[15px] leading-6 text-slate-100 outline-none placeholder:text-slate-400/75 sm:px-3 sm:py-[14px] sm:text-base"
+            style={{ minHeight: `${MIN_TEXTAREA_HEIGHT}px`, maxHeight: `${MAX_TEXTAREA_HEIGHT}px`, height: `${MIN_TEXTAREA_HEIGHT}px` }}
           />
           <button
             onClick={handleSubmit}
             disabled={disabled || !input.trim()}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg bg-[#19c37d] p-2 text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:right-3"
+            className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sky-400/20 bg-sky-500 text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:border-slate-600/40 disabled:bg-slate-700/60 disabled:text-slate-400 sm:h-10 sm:w-10 sm:rounded-2xl ${isMultiline ? 'self-end' : 'self-center'}`}
           >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
+            <svg width="16" height="16" viewBox="0 0 18 18" fill="currentColor" className="sm:h-[18px] sm:w-[18px]">
               <path d="M1.5 9l7.5-7.5v5.25h7.5v5.25h-7.5v5.25L1.5 9z" />
             </svg>
           </button>
         </div>
-        <p className="mt-3 text-center text-xs text-[#8e8ea0]">
-          AI 可能会产生错误信息，请核实重要内容
-        </p>
       </div>
+      <p className="mt-2 text-center text-[11px] text-slate-400/80 sm:mt-3 sm:text-xs">
+        AI 可能会产生错误信息，请核实重要内容
+      </p>
     </div>
   );
 }

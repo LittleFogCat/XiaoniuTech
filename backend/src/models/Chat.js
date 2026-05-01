@@ -15,6 +15,22 @@ const MessageSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const ChatTargetSchema = new mongoose.Schema(
+  {
+    type: {
+      type: String,
+      required: true,
+      enum: ['identity'],
+    },
+    id: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+  },
+  { _id: false }
+);
+
 const ChatSchema = new mongoose.Schema(
   {
     userId: {
@@ -37,9 +53,24 @@ const ChatSchema = new mongoose.Schema(
       type: [MessageSchema],
       default: [],
     },
+    chatTarget: {
+      type: ChatTargetSchema,
+      default: null,
+    },
   },
   {
     timestamps: true,
+  }
+);
+
+ChatSchema.index(
+  { userId: 1, 'chatTarget.type': 1, 'chatTarget.id': 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      'chatTarget.type': 'identity',
+      'chatTarget.id': { $exists: true, $type: 'string' },
+    },
   }
 );
 

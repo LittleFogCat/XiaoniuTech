@@ -1,4 +1,11 @@
 import Chat from '../models/Chat.js';
+import { getIdentityById } from '../config/identities.js';
+
+function createHttpError(statusCode, message) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+}
 
 function toChatResponse(doc) {
   return {
@@ -6,6 +13,7 @@ function toChatResponse(doc) {
     userId: doc.userId,
     title: doc.title,
     model: doc.model,
+    chatTarget: doc.chatTarget ?? null,
     messages: doc.messages ?? [],
     createdAt: doc.createdAt ? new Date(doc.createdAt).getTime() : null,
     updatedAt: doc.updatedAt ? new Date(doc.updatedAt).getTime() : null,
@@ -18,6 +26,7 @@ function toChatSummary(doc) {
     userId: doc.userId,
     title: doc.title,
     model: doc.model,
+    chatTarget: doc.chatTarget ?? null,
     createdAt: doc.createdAt ? new Date(doc.createdAt).getTime() : null,
     updatedAt: doc.updatedAt ? new Date(doc.updatedAt).getTime() : null,
   };
@@ -35,10 +44,69 @@ function normalizeMessages(messages) {
     }));
 }
 
+function resolveChatTarget(chatTarget) {
+  if (chatTarget === undefined) {
+    return undefined;
+  }
+
+  if (chatTarget === null || chatTarget === '') {
+    return { chatTarget: null, identity: null };
+  }
+
+  if (typeof chatTarget !== 'object') {
+    throw createHttpError(400, 'chatTarget 格式无效');
+  }
+
+  const type = String(chatTarget.type || '').trim();
+  const id = String(chatTarget.id || '').trim();
+
+  if (!type && !id) {
+    return { chatTarget: null, identity: null };
+  }
+
+  if (type !== 'identity' || !id) {
+    throw createHttpError(400, '暂不支持该聊天对象');
+  }
+
+  const identity = getIdentityById(id);
+  if (!identity) {
+    throw createHttpError(400, '所选智能体不存在');
+  }
+
+  return {
+    chatTarget: {
+      type: 'identity',
+      id: identity.id,
+    },
+    identity,
+  };
+}
+
+async function ensureChatTargetAvailability(userId, chatTarget, excludeChatId = null) {
+  if (!chatTarget || chatTarget.type !== 'identity') {
+    return;
+  }
+
+  const query = {
+    userId,
+    'chatTarget.type': 'identity',
+    'chatTarget.id': chatTarget.id,
+  };
+
+  if (excludeChatId) {
+    query._id = { $ne: excludeChatId };
+  }
+
+  const existing = await Chat.findOne(query).select('_id').lean();
+  if (existing) {
+    throw createHttpError(409, '该智能体对话已存在');
+  }
+}
+
 export async function listChats(userId) {
   const docs = await Chat.find({ userId })
     .sort({ updatedAt: -1 })
-    .select('title model createdAt updatedAt')
+    .select('title model chatTarget createdAt updatedAt')
     .lean();
   return docs.map(toChatSummary);
 }
@@ -49,18 +117,33 @@ export async function getChatById(id, userId) {
 }
 
 export async function createChat(userId, payload = {}) {
+  const resolvedChatTarget = resolveChatTarget(payload.chatTarget);
+  const chatTarget = resolvedChatTarget?.chatTarget ?? null;
+  const identity = resolvedChatTarget?.identity ?? null;
+
+  await ensureChatTargetAvailability(userId, chatTarget);
+
   const doc = await Chat.create({
     userId,
-    title: payload.title || '新对话',
+    title: payload.title || identity?.name || '新对话',
     model: payload.model || 'glm-5.1',
     messages: normalizeMessages(payload.messages),
+    chatTarget,
   });
   return toChatResponse(doc.toObject());
 }
 
 export async function updateChat(id, userId, payload = {}) {
   const update = {};
-  if (payload.title !== undefined) update.title = payload.title || '新对话';
+  const resolvedChatTarget = resolveChatTarget(payload.chatTarget);
+  if (resolvedChatTarget !== undefined) {
+    update.chatTarget = resolvedChatTarget.chatTarget;
+    await ensureChatTargetAvailability(userId, resolvedChatTarget.chatTarget, id);
+    if (payload.title === undefined) {
+      update.title = resolvedChatTarget.identity?.name || '新对话';
+    }
+  }
+  if (payload.title !== undefined) update.title = payload.title || resolvedChatTarget?.identity?.name || '新对话';
   if (payload.model !== undefined) update.model = payload.model || 'glm-5.1';
   if (payload.messages !== undefined) update.messages = normalizeMessages(payload.messages);
 

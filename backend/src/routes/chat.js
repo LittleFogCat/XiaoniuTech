@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getAllModels, getDefaultModel } from '../config/models.js';
+import { getIdentityById, getPublicIdentities } from '../config/identities.js';
 import { streamCompletions } from '../services/provider.js';
 import {
   createAuthToken,
@@ -24,6 +25,62 @@ import {
 const router = Router();
 const EMAIL_CODE_TTL_MS = 10 * 60 * 1000;
 const MIN_PASSWORD_LENGTH = 8;
+
+function getStatusCode(error, fallback = 500) {
+  return error?.statusCode || fallback;
+}
+
+function resolveChatTarget(chatTarget) {
+  if (!chatTarget) {
+    return null;
+  }
+
+  if (typeof chatTarget !== 'object') {
+    const error = new Error('chatTarget 格式无效');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const type = String(chatTarget.type || '').trim();
+  const id = String(chatTarget.id || '').trim();
+
+  if (!type && !id) {
+    return null;
+  }
+
+  if (type !== 'identity' || !id) {
+    const error = new Error('暂不支持该聊天对象');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const identity = getIdentityById(id);
+  if (!identity) {
+    const error = new Error('所选智能体不存在');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return {
+    type: 'identity',
+    id: identity.id,
+    identity,
+  };
+}
+
+function buildCompletionMessages(messages, chatTarget) {
+  if (!chatTarget || chatTarget.type !== 'identity') {
+    return messages;
+  }
+
+  return [
+    {
+      role: 'system',
+      content: `以下是当前智能体的人格设定，请严格遵循。\n\n${chatTarget.identity.personaDefinition}`,
+    },
+    ...messages,
+  ];
+}
 
 function getLoginCredentials() {
   return {
@@ -304,9 +361,17 @@ router.get('/models', (req, res) => {
   }
 });
 
+router.get('/identities', (req, res) => {
+  try {
+    res.json({ identities: getPublicIdentities() });
+  } catch (error) {
+    res.status(getStatusCode(error)).json({ error: error.message });
+  }
+});
+
 router.post('/chat', async (req, res) => {
   try {
-    const { model, messages, max_tokens, temperature, top_p } = req.body;
+    const { model, messages, max_tokens, temperature, top_p, chatTarget } = req.body;
 
     if (!model) {
       return res.status(400).json({ error: 'model is required' });
@@ -315,6 +380,8 @@ router.post('/chat', async (req, res) => {
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: 'messages is required and must be non-empty array' });
     }
+
+    const resolvedChatTarget = resolveChatTarget(chatTarget);
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -329,7 +396,8 @@ router.post('/chat', async (req, res) => {
     };
 
     let fullContent = '';
-    for await (const chunk of streamCompletions(model, messages, options)) {
+    const completionMessages = buildCompletionMessages(messages, resolvedChatTarget);
+    for await (const chunk of streamCompletions(model, completionMessages, options)) {
       fullContent += chunk;
       res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
     }
@@ -339,7 +407,7 @@ router.post('/chat', async (req, res) => {
   } catch (error) {
     console.error('Chat error:', error);
     if (!res.headersSent) {
-      res.status(500).json({ error: error.message });
+      res.status(getStatusCode(error)).json({ error: error.message });
     } else {
       res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
       res.end();
