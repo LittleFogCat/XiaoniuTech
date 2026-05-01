@@ -10,6 +10,7 @@ import * as mock from './services/mock';
 const USE_MOCK = false;
 const GUEST_MODE = 'guest';
 const AUTH_MODE_KEY = 'auth_mode';
+const AUTH_TOKEN_KEY = 'auth_token';
 const GUEST_CHAT_STORAGE_KEY = 'guest_chat_records';
 const GUEST_CHAT_LIMIT = 10;
 
@@ -80,6 +81,7 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem(AUTH_MODE_KEY);
+    localStorage.removeItem(AUTH_TOKEN_KEY);
     setIsLoggedIn(false);
     setAuthMode('user');
     setChats([]);
@@ -88,9 +90,10 @@ export default function App() {
   };
 
   useEffect(() => {
-    const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
     const savedMode = localStorage.getItem(AUTH_MODE_KEY) || 'user';
-    setIsLoggedIn(loggedIn);
+    const hasToken = Boolean(localStorage.getItem(AUTH_TOKEN_KEY));
+    const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    setIsLoggedIn(savedMode === GUEST_MODE ? loggedIn : loggedIn && hasToken);
     setAuthMode(savedMode);
     setHasCheckedLogin(true);
   }, []);
@@ -105,15 +108,8 @@ export default function App() {
       setModels(mock.getModels());
       const loadedChats = mock.getChats();
       setChats(loadedChats);
-      const current = mock.getCurrentChat();
-      if (current) {
-        setCurrentChat(current);
-        setSelectedModel(current.model);
-      } else if (loadedChats.length > 0) {
-        mock.setCurrentChat(loadedChats[0].id);
-        setCurrentChat(loadedChats[0]);
-        setSelectedModel(loadedChats[0].model);
-      }
+      setCurrentChat(null);
+      setSelectedModel(loadedChats[0]?.model || '');
     } else {
       const modelPromise = fetchModels();
       const chatPromise = isGuest ? Promise.resolve(loadGuestChats()) : fetchChats();
@@ -128,15 +124,14 @@ export default function App() {
 
         setModels(models);
         setChats(normalizedChats);
-        if (normalizedChats.length > 0) {
-          const firstChat = normalizedChats[0];
-          setCurrentChat({ ...firstChat, messages: Array.isArray(firstChat.messages) ? firstChat.messages : [] });
-          setSelectedModel(firstChat.model);
-        } else {
-          setSelectedModel(fallbackModel);
-        }
+        setCurrentChat(null);
+        setSelectedModel(fallbackModel);
       }).catch((err) => {
         console.error('Failed to load data:', err);
+        if (!isGuest && /\b401\b/.test(err.message)) {
+          handleLogout();
+          return;
+        }
         setLoadError(err.message);
       });
     }

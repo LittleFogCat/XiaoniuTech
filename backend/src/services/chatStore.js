@@ -3,6 +3,7 @@ import Chat from '../models/Chat.js';
 function toChatResponse(doc) {
   return {
     id: doc._id.toString(),
+    userId: doc.userId,
     title: doc.title,
     model: doc.model,
     messages: doc.messages ?? [],
@@ -14,6 +15,7 @@ function toChatResponse(doc) {
 function toChatSummary(doc) {
   return {
     id: doc._id.toString(),
+    userId: doc.userId,
     title: doc.title,
     model: doc.model,
     createdAt: doc.createdAt ? new Date(doc.createdAt).getTime() : null,
@@ -33,21 +35,22 @@ function normalizeMessages(messages) {
     }));
 }
 
-export async function listChats() {
-  const docs = await Chat.find({})
+export async function listChats(userId) {
+  const docs = await Chat.find({ userId })
     .sort({ updatedAt: -1 })
     .select('title model createdAt updatedAt')
     .lean();
   return docs.map(toChatSummary);
 }
 
-export async function getChatById(id) {
-  const doc = await Chat.findById(id).lean();
+export async function getChatById(id, userId) {
+  const doc = await Chat.findOne({ _id: id, userId }).lean();
   return doc ? toChatResponse(doc) : null;
 }
 
-export async function createChat(payload = {}) {
+export async function createChat(userId, payload = {}) {
   const doc = await Chat.create({
+    userId,
     title: payload.title || '新对话',
     model: payload.model || 'glm-5.1',
     messages: normalizeMessages(payload.messages),
@@ -55,18 +58,18 @@ export async function createChat(payload = {}) {
   return toChatResponse(doc.toObject());
 }
 
-export async function updateChat(id, payload = {}) {
+export async function updateChat(id, userId, payload = {}) {
   const update = {};
   if (payload.title !== undefined) update.title = payload.title || '新对话';
   if (payload.model !== undefined) update.model = payload.model || 'glm-5.1';
   if (payload.messages !== undefined) update.messages = normalizeMessages(payload.messages);
 
-  const doc = await Chat.findByIdAndUpdate(id, update, { new: true }).lean();
+  const doc = await Chat.findOneAndUpdate({ _id: id, userId }, update, { new: true }).lean();
   return doc ? toChatResponse(doc) : null;
 }
 
-export async function deleteChat(id) {
-  const result = await Chat.findByIdAndDelete(id).lean();
+export async function deleteChat(id, userId) {
+  const result = await Chat.findOneAndDelete({ _id: id, userId }).lean();
   return Boolean(result);
 }
 

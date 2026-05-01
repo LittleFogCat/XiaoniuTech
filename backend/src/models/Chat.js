@@ -17,6 +17,12 @@ const MessageSchema = new mongoose.Schema(
 
 const ChatSchema = new mongoose.Schema(
   {
+    userId: {
+      type: String,
+      required: true,
+      trim: true,
+      index: true,
+    },
     title: {
       type: String,
       default: '新对话',

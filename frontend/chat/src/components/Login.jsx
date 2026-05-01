@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
+import { login } from '../services/api';
 
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState(() => localStorage.getItem('login_username') || '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  const ADMIN_USERNAME = 'admin';
-  const ADMIN_PASSWORD = 'a.1?b';
 
   useEffect(() => {
     if (localStorage.getItem('login_username')) {
@@ -21,18 +19,14 @@ export default function Login({ onLogin }) {
     setIsLoading(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('auth_mode', 'user');
-        localStorage.setItem('login_username', username);
-        onLogin('user');
-      } else {
-        setError('用户名或密码错误');
-      }
+      const { user, token } = await login(username, password);
+      localStorage.setItem('isLoggedIn', 'true');
+      localStorage.setItem('auth_mode', 'user');
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('login_username', user?.username || username);
+      onLogin('user');
     } catch (err) {
-      setError('登录失败，请重试');
+      setError(err instanceof Error ? err.message : '登录失败，请重试');
     } finally {
       setIsLoading(false);
     }
@@ -41,6 +35,7 @@ export default function Login({ onLogin }) {
   const handleGuestAccess = () => {
     localStorage.setItem('isLoggedIn', 'true');
     localStorage.setItem('auth_mode', 'guest');
+    localStorage.removeItem('auth_token');
     localStorage.removeItem('login_username');
     onLogin('guest');
   };

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getAllModels, getDefaultModel } from '../config/models.js';
 import { streamCompletions } from '../services/provider.js';
+import { createAuthToken, readBearerToken, verifyAuthToken } from '../services/auth.js';
 import {
   listChats,
   getChatById,
@@ -11,36 +12,74 @@ import {
 
 const router = Router();
 
-router.get('/chats', async (req, res) => {
+function getLoginCredentials() {
+  return {
+    username: process.env.CHAT_ADMIN_USERNAME || 'admin',
+    password: process.env.CHAT_ADMIN_PASSWORD || 'a.1?b',
+  };
+}
+
+function requireAuth(req, res, next) {
+  const token = readBearerToken(req);
+  const payload = verifyAuthToken(token);
+
+  if (!payload) {
+    return res.status(401).json({ error: '未登录或登录已失效' });
+  }
+
+  req.user = {
+    username: payload.username,
+  };
+  return next();
+}
+
+router.post('/login', (req, res) => {
+  const { username = '', password = '' } = req.body || {};
+  const credentials = getLoginCredentials();
+
+  if (username !== credentials.username || password !== credentials.password) {
+    return res.status(401).json({ error: '用户名或密码错误' });
+  }
+
+  return res.json({
+    success: true,
+    token: createAuthToken(credentials.username),
+    user: {
+      username: credentials.username,
+    },
+  });
+});
+
+router.get('/chats', requireAuth, async (req, res) => {
   try {
-    const chats = await listChats();
+    const chats = await listChats(req.user.username);
     res.json({ chats });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-router.get('/chats/current', async (req, res) => {
+router.get('/chats/current', requireAuth, async (req, res) => {
   try {
     const { id } = req.query;
     if (id) {
-      const chat = await getChatById(id);
+      const chat = await getChatById(id, req.user.username);
       return res.json({ chat });
     }
-    const chats = await listChats();
+    const chats = await listChats(req.user.username);
     if (!chats.length) {
       return res.json({ chat: null });
     }
-    const chat = await getChatById(chats[0].id);
+    const chat = await getChatById(chats[0].id, req.user.username);
     return res.json({ chat });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-router.get('/chats/:id', async (req, res) => {
+router.get('/chats/:id', requireAuth, async (req, res) => {
   try {
-    const chat = await getChatById(req.params.id);
+    const chat = await getChatById(req.params.id, req.user.username);
     if (!chat) {
       return res.status(404).json({ error: 'Chat not found' });
     }
@@ -50,18 +89,18 @@ router.get('/chats/:id', async (req, res) => {
   }
 });
 
-router.post('/chats', async (req, res) => {
+router.post('/chats', requireAuth, async (req, res) => {
   try {
-    const chat = await createChat(req.body || {});
+    const chat = await createChat(req.user.username, req.body || {});
     res.json({ chat });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-router.put('/chats/:id', async (req, res) => {
+router.put('/chats/:id', requireAuth, async (req, res) => {
   try {
-    const chat = await updateChatById(req.params.id, req.body || {});
+    const chat = await updateChatById(req.params.id, req.user.username, req.body || {});
     if (!chat) {
       return res.status(404).json({ error: 'Chat not found' });
     }
@@ -71,9 +110,9 @@ router.put('/chats/:id', async (req, res) => {
   }
 });
 
-router.delete('/chats/:id', async (req, res) => {
+router.delete('/chats/:id', requireAuth, async (req, res) => {
   try {
-    const deleted = await deleteChatById(req.params.id);
+    const deleted = await deleteChatById(req.params.id, req.user.username);
     if (!deleted) {
       return res.status(404).json({ error: 'Chat not found' });
     }

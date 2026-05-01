@@ -1,4 +1,37 @@
 const API_BASE = '/api';
+const AUTH_TOKEN_KEY = 'auth_token';
+
+function getAuthToken() {
+  return localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+function getAuthHeaders(extraHeaders = {}) {
+  const token = getAuthToken();
+  return token
+    ? {
+        ...extraHeaders,
+        Authorization: `Bearer ${token}`,
+      }
+    : extraHeaders;
+}
+
+export async function login(username, password) {
+  const res = await fetch(`${API_BASE}/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || `Login failed: ${res.status}`);
+  }
+
+  return {
+    token: data.token,
+    user: data.user,
+  };
+}
 
 export async function fetchModels() {
   const res = await fetch(`${API_BASE}/models`);
@@ -10,7 +43,9 @@ export async function fetchModels() {
 }
 
 export async function fetchChats() {
-  const res = await fetch(`${API_BASE}/chats`);
+  const res = await fetch(`${API_BASE}/chats`, {
+    headers: getAuthHeaders(),
+  });
   if (!res.ok) {
     throw new Error(`Failed to fetch chats: ${res.status}`);
   }
@@ -19,7 +54,9 @@ export async function fetchChats() {
 }
 
 export async function fetchChat(chatId) {
-  const res = await fetch(`${API_BASE}/chats/${chatId}`);
+  const res = await fetch(`${API_BASE}/chats/${chatId}`, {
+    headers: getAuthHeaders(),
+  });
   if (!res.ok) {
     throw new Error(`Failed to fetch chat: ${res.status}`);
   }
@@ -30,7 +67,7 @@ export async function fetchChat(chatId) {
 export async function createChat(data = {}) {
   const res = await fetch(`${API_BASE}/chats`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(data),
   });
   if (!res.ok) {
@@ -43,7 +80,7 @@ export async function createChat(data = {}) {
 export async function updateChat(chatId, data = {}) {
   const res = await fetch(`${API_BASE}/chats/${chatId}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(data),
   });
   if (!res.ok) {
@@ -56,6 +93,7 @@ export async function updateChat(chatId, data = {}) {
 export async function deleteChat(chatId) {
   const res = await fetch(`${API_BASE}/chats/${chatId}`, {
     method: 'DELETE',
+    headers: getAuthHeaders(),
   });
   if (!res.ok) {
     throw new Error(`Failed to delete chat: ${res.status}`);
