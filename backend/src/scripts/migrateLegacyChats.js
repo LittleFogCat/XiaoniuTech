@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 function parseArgs(argv) {
   const args = {
     apply: false,
-    userId: process.env.CHAT_ADMIN_USERNAME || 'admin',
+    userId: process.env.CHAT_ADMIN_USERNAME || null,
     help: false,
   };
 
@@ -40,7 +40,7 @@ function printHelp() {
   console.log('');
   console.log('默认仅预览，不会写入数据库。');
   console.log('--apply        实际执行迁移');
-  console.log('--user         指定要回填到哪个 userId，默认取 CHAT_ADMIN_USERNAME 或 admin');
+  console.log('--user         指定要回填到哪个 userId（必须在执行迁移时指定，或设置 CHAT_ADMIN_USERNAME 环境变量）');
 }
 
 function buildLegacyFilter() {
@@ -54,9 +54,16 @@ function buildLegacyFilter() {
 }
 
 export async function migrateLegacyChats(options = {}) {
-  const userId = options.userId || process.env.CHAT_ADMIN_USERNAME || 'admin';
+  const userId = options.userId || process.env.CHAT_ADMIN_USERNAME || null;
   const apply = Boolean(options.apply);
   const filter = buildLegacyFilter();
+
+  if (!userId) {
+    if (apply) {
+      throw new Error('要执行迁移，请使用 --user 指定目标 userId 或设置 CHAT_ADMIN_USERNAME 环境变量。');
+    }
+    console.log('预览模式：未指定目标 userId。使用 --user 指定或设置 CHAT_ADMIN_USERNAME 环境变量以执行迁移。');
+  }
 
   const mongoUri = await connectMongoDB();
   try {
@@ -69,8 +76,8 @@ export async function migrateLegacyChats(options = {}) {
     }
 
     if (!apply) {
-      console.log(`预览模式：将会把这些聊天记录回填到 userId="${userId}"。`);
-      console.log('如需实际执行，请追加 --apply。');
+      console.log(`预览模式：将会把这些聊天记录回填到 userId="${userId || '<未指定>'}"。`);
+      console.log('如需实际执行，请追加 --apply 并指定 --user 或设置 CHAT_ADMIN_USERNAME 环境变量。');
       return { matchedCount: legacyCount, modifiedCount: 0, userId, dryRun: true };
     }
 

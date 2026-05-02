@@ -82,12 +82,7 @@ function buildCompletionMessages(messages, chatTarget) {
   ];
 }
 
-function getLoginCredentials() {
-  return {
-    username: process.env.CHAT_ADMIN_USERNAME || 'admin',
-    password: process.env.CHAT_ADMIN_PASSWORD || 'a.1?b',
-  };
-}
+// Admin account removed — no default admin credentials supported.
 
 function normalizeEmail(email = '') {
   return String(email).trim().toLowerCase();
@@ -247,19 +242,10 @@ router.post('/register/verify', async (req, res) => {
 
 router.post('/login', (req, res) => {
   const { username = '', email = '', password = '' } = req.body || {};
-  const credentials = getLoginCredentials();
   const identity = String(email || username || '').trim();
 
   if (!identity || !password) {
     return res.status(400).json({ error: '邮箱和密码不能为空' });
-  }
-
-  if (identity === credentials.username && password === credentials.password) {
-    return res.json({
-      success: true,
-      token: createAuthToken(credentials.username),
-      user: buildUserResponse(credentials.username),
-    });
   }
 
   return User.findOne({ email: normalizeEmail(identity) })

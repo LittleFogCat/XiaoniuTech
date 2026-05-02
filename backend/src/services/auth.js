@@ -7,7 +7,11 @@ const PASSWORD_DIGEST = 'sha512';
 const EMAIL_CODE_LENGTH = 6;
 
 function getAuthSecret() {
-  return process.env.CHAT_AUTH_SECRET || 'chat-auth-secret-change-me';
+  const secret = process.env.CHAT_AUTH_SECRET;
+  if (!secret) {
+    throw new Error('CHAT_AUTH_SECRET environment variable is required');
+  }
+  return secret;
 }
 
 function base64urlEncode(value) {
