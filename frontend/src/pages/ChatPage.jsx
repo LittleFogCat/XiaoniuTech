@@ -116,10 +116,12 @@ export default function ChatPage() {
   const [viewMode, setViewMode] = useState(CHAT_VIEW.conversation);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [guestLimitNotice, setGuestLimitNotice] = useState('');
   const messagesEndRef = useRef(null);
+  const mobileActionsRef = useRef(null);
   const safeMessages = Array.isArray(currentChat?.messages) ? currentChat.messages : [];
   const isGuest = authMode === GUEST_MODE;
   const activeIdentity = resolveIdentityMeta(currentChat, identities);
@@ -127,6 +129,8 @@ export default function ChatPage() {
   const showCenteredComposer = viewMode === CHAT_VIEW.conversation && models.length > 0 && (!currentChat || !hasConversationStarted);
   const assistantName = activeIdentity?.name || DEFAULT_ASSISTANT_NAME;
   const assistantAvatarUrl = activeIdentity?.avatarUrl || '';
+  const authActionLabel = isGuest ? '登录' : '退出';
+  const authActionTitle = isGuest ? '返回登录页' : '退出登录';
 
   useEffect(() => {
     if (viewMode === CHAT_VIEW.identities) {
@@ -136,6 +140,36 @@ export default function ChatPage() {
 
     document.title = activeIdentity?.name ? `${activeIdentity.name} | XN Chat` : 'XN Chat';
   }, [viewMode, activeIdentity?.name]);
+
+  useEffect(() => {
+    if (!mobileActionsOpen) {
+      return undefined;
+    }
+
+    const handlePointerDown = (event) => {
+      if (mobileActionsRef.current && !mobileActionsRef.current.contains(event.target)) {
+        setMobileActionsOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setMobileActionsOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [mobileActionsOpen]);
+
+  useEffect(() => {
+    setMobileActionsOpen(false);
+  }, [viewMode, currentChat?.id, mobileSidebarOpen]);
 
   const handleLogin = (mode = 'user') => {
     setAuthMode(mode);
@@ -153,6 +187,16 @@ export default function ChatPage() {
     setCurrentChat(null);
     setViewMode(CHAT_VIEW.conversation);
     setGuestLimitNotice('');
+  };
+
+  const handleOpenIdentities = () => {
+    setMobileActionsOpen(false);
+    setViewMode(CHAT_VIEW.identities);
+  };
+
+  const handleAuthAction = () => {
+    setMobileActionsOpen(false);
+    handleLogout();
   };
 
   useEffect(() => {
@@ -790,7 +834,7 @@ export default function ChatPage() {
       />
 
       <div className="relative z-10 flex min-w-0 flex-1 flex-col p-1.5 sm:p-3">
-        <header className="flex flex-wrap items-center gap-2.5 rounded-[24px] border border-slate-700/60 bg-[linear-gradient(180deg,rgba(30,41,59,0.82),rgba(17,24,39,0.82))] px-2.5 py-2.5 shadow-[0_12px_28px_rgba(15,23,42,0.16)] backdrop-blur-lg sm:gap-3 sm:rounded-[28px] sm:px-4 sm:py-3.5 sm:shadow-[0_16px_38px_rgba(15,23,42,0.18)]">
+        <header className="relative z-30 flex items-center gap-2.5 rounded-[24px] border border-slate-700/60 bg-[linear-gradient(180deg,rgba(30,41,59,0.82),rgba(17,24,39,0.82))] px-2.5 py-2.5 shadow-[0_12px_28px_rgba(15,23,42,0.16)] backdrop-blur-lg sm:gap-3 sm:rounded-[28px] sm:px-4 sm:py-3.5 sm:shadow-[0_16px_38px_rgba(15,23,42,0.18)]">
           <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
             <button
               onClick={() => setMobileSidebarOpen(true)}
@@ -805,21 +849,25 @@ export default function ChatPage() {
             </button>
             <div className="min-w-0">
               <div className="truncate text-[15px] font-semibold text-white sm:text-lg">XN Chat</div>
-              <div className="mt-0.5 truncate text-xs text-slate-400/75">
-                {activeIdentity ? `当前会话：${activeIdentity.name}` : '多模型流式聊天工作台'}
+              <div className="mt-0.5 truncate text-[11px] text-slate-400/75 sm:text-xs">
+                <span className="sm:hidden">
+                  {activeIdentity ? `当前：${activeIdentity.name}` : '多模型对话工作台'}
+                </span>
+                <span className="hidden sm:inline">
+                  {activeIdentity ? `当前会话：${activeIdentity.name}` : '多模型流式聊天工作台'}
+                </span>
               </div>
             </div>
           </div>
 
-          <div className="flex w-full min-w-0 items-center justify-end gap-2 sm:w-auto sm:flex-none sm:gap-3">
+          <div className="hidden min-w-0 items-center justify-end gap-2 md:flex md:w-auto md:flex-none md:gap-3">
             {isGuest && (
               <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-400/10 px-2.5 py-1 text-[11px] text-amber-200 sm:px-3 sm:text-xs">
-                <span className="sm:hidden">游客</span>
-                <span className="hidden sm:inline">游客模式</span>
+                游客模式
               </span>
             )}
             {models.length > 0 && (
-              <div className="min-w-[8.75rem] flex-1 basis-[8.75rem] sm:min-w-[210px] sm:flex-none sm:basis-auto">
+              <div className="min-w-[210px] flex-none">
                 <ModelSelect
                   models={models}
                   value={selectedModel}
@@ -828,25 +876,93 @@ export default function ChatPage() {
               </div>
             )}
             <button
-              onClick={() => setViewMode(CHAT_VIEW.identities)}
+              onClick={handleOpenIdentities}
               className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium transition sm:h-11 sm:rounded-2xl sm:px-4 ${viewMode === CHAT_VIEW.identities ? 'border-sky-500/30 bg-sky-500/10 text-sky-100' : 'border-slate-600/70 bg-slate-800/35 text-slate-100 hover:border-slate-500/80 hover:bg-slate-700/55'}`}
             >
               <span className="text-[15px] leading-none sm:text-base">+</span>
-              <span className="sm:hidden">智能体</span>
-              <span className="hidden sm:inline">添加智能体</span>
+              <span>添加智能体</span>
             </button>
             <button
-              onClick={handleLogout}
+              onClick={handleAuthAction}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-600/70 bg-slate-800/35 px-3 text-sm font-medium text-slate-100 transition hover:border-slate-500/80 hover:bg-slate-700/55 sm:h-11 sm:rounded-2xl sm:px-4"
-              title={isGuest ? '退出游客模式' : '退出登录'}
+              title={authActionTitle}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                 <polyline points="16 17 21 12 16 7" />
                 <line x1="21" y1="12" x2="9" y2="12" />
               </svg>
-              <span className="hidden sm:inline">退出</span>
+              <span>{authActionLabel}</span>
             </button>
+          </div>
+
+          <div ref={mobileActionsRef} className="relative z-40 md:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileActionsOpen(open => !open)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-600/70 bg-slate-800/35 text-slate-100 transition hover:border-slate-500/80 hover:bg-slate-700/55"
+              title="打开操作菜单"
+              aria-expanded={mobileActionsOpen}
+              aria-haspopup="menu"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="5" r="1.5" />
+                <circle cx="12" cy="12" r="1.5" />
+                <circle cx="12" cy="19" r="1.5" />
+              </svg>
+            </button>
+
+            {mobileActionsOpen && (
+              <div className="absolute right-0 top-[calc(100%+0.55rem)] z-50 w-[min(18rem,calc(100vw-1rem))] rounded-[24px] border border-slate-700/70 bg-[linear-gradient(180deg,rgba(30,41,59,0.96),rgba(15,23,42,0.98))] p-3 shadow-[0_18px_40px_rgba(15,23,42,0.28)] backdrop-blur-xl">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-700/60 pb-3">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-200/75">Actions</div>
+                    <div className="mt-1 text-sm font-medium text-white">聊天操作</div>
+                  </div>
+                  {isGuest && (
+                    <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-400/10 px-2.5 py-1 text-[11px] text-amber-200">
+                      游客模式
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-3 space-y-3">
+                  {models.length > 0 && (
+                    <ModelSelect
+                      models={models}
+                      value={selectedModel}
+                      onChange={(modelId) => {
+                        handleModelChange(modelId);
+                        setMobileActionsOpen(false);
+                      }}
+                    />
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleOpenIdentities}
+                    className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium transition ${viewMode === CHAT_VIEW.identities ? 'border-sky-500/30 bg-sky-500/10 text-sky-100' : 'border-slate-600/70 bg-slate-800/35 text-slate-100 hover:border-slate-500/80 hover:bg-slate-700/55'}`}
+                  >
+                    <span className="text-[15px] leading-none">+</span>
+                    <span>添加智能体</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleAuthAction}
+                    className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-600/70 bg-slate-800/35 px-3 text-sm font-medium text-slate-100 transition hover:border-slate-500/80 hover:bg-slate-700/55"
+                    title={authActionTitle}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                      <polyline points="16 17 21 12 16 7" />
+                      <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                    <span>{authActionLabel}</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </header>
 
@@ -856,7 +972,7 @@ export default function ChatPage() {
           </div>
         )}
 
-        <div className="mt-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[26px] border border-slate-700/60 bg-[linear-gradient(180deg,rgba(30,41,59,0.72),rgba(15,23,42,0.76))] shadow-[0_12px_30px_rgba(15,23,42,0.16)] backdrop-blur-lg sm:mt-3 sm:rounded-[30px] sm:shadow-[0_16px_40px_rgba(15,23,42,0.18)]">
+        <div className="relative z-0 mt-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[26px] border border-slate-700/60 bg-[linear-gradient(180deg,rgba(30,41,59,0.72),rgba(15,23,42,0.76))] shadow-[0_12px_30px_rgba(15,23,42,0.16)] backdrop-blur-lg sm:mt-3 sm:rounded-[30px] sm:shadow-[0_16px_40px_rgba(15,23,42,0.18)]">
           {viewMode === CHAT_VIEW.identities ? (
             <IdentityPicker
               identities={identities}

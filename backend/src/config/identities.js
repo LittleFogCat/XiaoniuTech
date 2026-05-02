@@ -39,7 +39,7 @@ function resolveExistingIdentitiesDir() {
     return configuredDir;
   }
 
-  const bundledDir = path.resolve(PROJECT_ROOT, 'conf', 'identities');
+  const bundledDir = path.resolve(PROJECT_ROOT, 'conf', 'backend', 'identities');
   if (fs.existsSync(bundledDir)) {
     return bundledDir;
   }
@@ -100,6 +100,7 @@ function parseIdentityFile(filePath) {
     description: description.trim(),
     avatarUrl: avatarUrl.trim(),
     personaDefinition: personaDefinition.trim(),
+    seedFile: path.basename(filePath),
   };
 }
 
@@ -114,16 +115,17 @@ function assertUniqueIdentityNames(identities) {
   }
 }
 
-function toPublicIdentity(identity) {
+export function toPublicIdentity(identity) {
+  const id = identity?.id || identity?._id?.toString?.() || String(identity?._id || '');
   return {
-    id: identity.id,
+    id,
     name: identity.name,
     description: identity.description,
     avatarUrl: identity.avatarUrl,
   };
 }
 
-export function getAllIdentities() {
+export function loadSeedIdentities() {
   const identitiesDir = resolveExistingIdentitiesDir();
   if (!fs.existsSync(identitiesDir)) {
     return [];
@@ -138,20 +140,9 @@ export function getAllIdentities() {
   return identities;
 }
 
-export function getPublicIdentities() {
-  return getAllIdentities().map(toPublicIdentity);
-}
-
-export function getIdentityById(id) {
-  if (!id) {
-    return null;
-  }
-
-  return getAllIdentities().find(identity => identity.id === id) || null;
-}
-
 export default {
-  getAllIdentities,
-  getPublicIdentities,
-  getIdentityById,
+  loadSeedIdentities,
+  toPublicIdentity,
+  resolveExistingIdentitiesDir,
+  resolveIdentitiesDirPath,
 };

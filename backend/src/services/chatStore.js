@@ -1,5 +1,5 @@
 import Chat from '../models/Chat.js';
-import { getIdentityById } from '../config/identities.js';
+import { getIdentityById } from './identityStore.js';
 
 function createHttpError(statusCode, message) {
   const error = new Error(message);
@@ -44,7 +44,7 @@ function normalizeMessages(messages) {
     }));
 }
 
-function resolveChatTarget(chatTarget) {
+async function resolveChatTarget(chatTarget) {
   if (chatTarget === undefined) {
     return undefined;
   }
@@ -68,7 +68,7 @@ function resolveChatTarget(chatTarget) {
     throw createHttpError(400, '暂不支持该聊天对象');
   }
 
-  const identity = getIdentityById(id);
+  const identity = await getIdentityById(id);
   if (!identity) {
     throw createHttpError(400, '所选智能体不存在');
   }
@@ -117,7 +117,7 @@ export async function getChatById(id, userId) {
 }
 
 export async function createChat(userId, payload = {}) {
-  const resolvedChatTarget = resolveChatTarget(payload.chatTarget);
+  const resolvedChatTarget = await resolveChatTarget(payload.chatTarget);
   const chatTarget = resolvedChatTarget?.chatTarget ?? null;
   const identity = resolvedChatTarget?.identity ?? null;
 
@@ -135,7 +135,7 @@ export async function createChat(userId, payload = {}) {
 
 export async function updateChat(id, userId, payload = {}) {
   const update = {};
-  const resolvedChatTarget = resolveChatTarget(payload.chatTarget);
+  const resolvedChatTarget = await resolveChatTarget(payload.chatTarget);
   if (resolvedChatTarget !== undefined) {
     update.chatTarget = resolvedChatTarget.chatTarget;
     await ensureChatTargetAvailability(userId, resolvedChatTarget.chatTarget, id);

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getAllModels, getDefaultModel } from '../config/models.js';
-import { getIdentityById, getPublicIdentities } from '../config/identities.js';
+import { getIdentityById, listPublicIdentities } from '../services/identityStore.js';
 import { streamCompletions } from '../services/provider.js';
 import {
   createAuthToken,
@@ -30,7 +30,7 @@ function getStatusCode(error, fallback = 500) {
   return error?.statusCode || fallback;
 }
 
-function resolveChatTarget(chatTarget) {
+async function resolveChatTarget(chatTarget) {
   if (!chatTarget) {
     return null;
   }
@@ -54,7 +54,7 @@ function resolveChatTarget(chatTarget) {
     throw error;
   }
 
-  const identity = getIdentityById(id);
+  const identity = await getIdentityById(id);
   if (!identity) {
     const error = new Error('所选智能体不存在');
     error.statusCode = 400;
@@ -361,9 +361,9 @@ router.get('/models', (req, res) => {
   }
 });
 
-router.get('/identities', (req, res) => {
+router.get('/identities', async (req, res) => {
   try {
-    res.json({ identities: getPublicIdentities() });
+    res.json({ identities: await listPublicIdentities() });
   } catch (error) {
     res.status(getStatusCode(error)).json({ error: error.message });
   }
@@ -381,7 +381,7 @@ router.post('/chat', async (req, res) => {
       return res.status(400).json({ error: 'messages is required and must be non-empty array' });
     }
 
-    const resolvedChatTarget = resolveChatTarget(chatTarget);
+    const resolvedChatTarget = await resolveChatTarget(chatTarget);
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
