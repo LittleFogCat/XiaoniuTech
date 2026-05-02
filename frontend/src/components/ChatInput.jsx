@@ -65,7 +65,7 @@ export default function ChatInput({ onSend, disabled, layout = 'docked', autoFoc
             placeholder="发送消息..."
             disabled={disabled}
             rows={1}
-            className="w-full resize-none overflow-y-auto bg-transparent px-1.5 py-[11px] text-[15px] leading-6 text-slate-100 outline-none placeholder:text-slate-400/75 sm:px-3 sm:py-[14px] sm:text-base"
+            className="w-full resize-none overflow-y-auto bg-transparent px-1.5 py-[11px] text-[15px] leading-6 text-slate-100 outline-none placeholder:text-slate-400/75 select-text touch-auto [-webkit-touch-callout:default] [-webkit-user-select:text] sm:px-3 sm:py-[14px] sm:text-base"
             style={{ minHeight: `${MIN_TEXTAREA_HEIGHT}px`, maxHeight: `${MAX_TEXTAREA_HEIGHT}px`, height: `${MIN_TEXTAREA_HEIGHT}px` }}
           />
           <button

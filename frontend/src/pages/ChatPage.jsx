@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import ChatMessage from '../components/ChatMessage';
 import ChatInput from '../components/ChatInput';
 import ModelSelect from '../components/ModelSelect';
@@ -29,6 +29,9 @@ const CHAT_VIEW = {
   identities: 'identities',
 };
 const DEFAULT_ASSISTANT_NAME = 'AI 助手';
+const STREAM_UI_UPDATE_INTERVAL_MS = 100;
+const SCROLL_BOTTOM_THRESHOLD_PX = 48;
+const SCROLL_POSITION_EPSILON_PX = 0.5;
 
 function is404Error(error) {
   return error instanceof Error && /\b404\b/.test(error.message);
@@ -104,6 +107,23 @@ function isPersistedChat(chat) {
   return chat?.chatTarget?.type === 'identity' || (Array.isArray(chat?.messages) && chat.messages.length > 0);
 }
 
+function upsertAssistantMessage(messages, content, thinking = false) {
+  const nextMessages = Array.isArray(messages) ? [...messages] : [];
+  const lastMessage = nextMessages[nextMessages.length - 1];
+
+  if (lastMessage && lastMessage.role === 'assistant') {
+    nextMessages[nextMessages.length - 1] = {
+      ...lastMessage,
+      content,
+      thinking,
+    };
+    return nextMessages;
+  }
+
+  nextMessages.push({ role: 'assistant', content, thinking });
+  return nextMessages;
+}
+
 export default function ChatPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authMode, setAuthMode] = useState('user');
@@ -120,8 +140,11 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [guestLimitNotice, setGuestLimitNotice] = useState('');
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const chatScrollRef = useRef(null);
   const messagesEndRef = useRef(null);
   const mobileActionsRef = useRef(null);
+  const isPinnedToBottomRef = useRef(true);
   const safeMessages = Array.isArray(currentChat?.messages) ? currentChat.messages : [];
   const isGuest = authMode === GUEST_MODE;
   const activeIdentity = resolveIdentityMeta(currentChat, identities);
@@ -199,6 +222,48 @@ export default function ChatPage() {
     handleLogout();
   };
 
+  const scrollToLatest = () => {
+    const container = chatScrollRef.current;
+    if (!container) {
+      return;
+    }
+
+    const targetScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+    if (Math.abs(container.scrollTop - targetScrollTop) > SCROLL_POSITION_EPSILON_PX) {
+      container.scrollTop = targetScrollTop;
+    }
+    isPinnedToBottomRef.current = true;
+    setShowScrollToBottom(false);
+  };
+
+  const syncScrollState = () => {
+    const container = chatScrollRef.current;
+    if (!container) {
+      return;
+    }
+
+    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    const isAtBottom = distanceToBottom <= SCROLL_BOTTOM_THRESHOLD_PX;
+    isPinnedToBottomRef.current = isAtBottom;
+    setShowScrollToBottom((previous) => {
+      const nextValue = !isAtBottom;
+      return previous === nextValue ? previous : nextValue;
+    });
+  };
+
+  const commitAssistantPreview = (content, thinking = false) => {
+    setCurrentChat((prev) => {
+      if (!prev) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        messages: upsertAssistantMessage(prev.messages, content, thinking),
+      };
+    });
+  };
+
   useEffect(() => {
     const savedMode = localStorage.getItem(AUTH_MODE_KEY) || 'user';
     const hasToken = Boolean(localStorage.getItem(AUTH_TOKEN_KEY));
@@ -264,7 +329,25 @@ export default function ChatPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [currentChat?.messages]);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (viewMode !== CHAT_VIEW.conversation || !currentChat) {
+      return undefined;
+    }
+
+    scrollToLatest();
+    return undefined;
+  }, [currentChat?.id, viewMode]);
+
+  useLayoutEffect(() => {
+    if (viewMode !== CHAT_VIEW.conversation || !currentChat?.messages || !isPinnedToBottomRef.current) {
+      return undefined;
+    }
+
+    scrollToLatest();
+    return undefined;
+  }, [currentChat?.messages, currentChat?.id, viewMode]);
 
   const upsertGuestChat = (chatId, payload) => {
     const now = Date.now();
@@ -515,35 +598,23 @@ export default function ChatPage() {
       }
 
       let fullContent = '';
+      let lastUiUpdateAt = 0;
       const streamFn = USE_MOCK
         ? () => mock.streamChatMock(effectiveModel, newMessages)
         : () => streamChat(effectiveModel, newMessages, { chatTarget: activeChatTarget });
 
       for await (const chunk of streamFn()) {
         fullContent += chunk;
-        setCurrentChat(prev => {
-          if (!prev) return prev;
-          const nextMessages = [...prev.messages];
-          const lastMessage = nextMessages[nextMessages.length - 1];
-          if (lastMessage && lastMessage.role === 'assistant') {
-            lastMessage.content = fullContent;
-            lastMessage.thinking = false;
-          } else {
-            nextMessages.push({ role: 'assistant', content: fullContent, thinking: false });
-          }
-          return { ...prev, messages: nextMessages };
-        });
+        const now = Date.now();
+        if (now - lastUiUpdateAt < STREAM_UI_UPDATE_INTERVAL_MS) {
+          continue;
+        }
+
+        lastUiUpdateAt = now;
+        commitAssistantPreview(fullContent, false);
       }
 
-      setCurrentChat(prev => {
-        if (!prev) return prev;
-        const nextMessages = [...prev.messages];
-        const lastMessage = nextMessages[nextMessages.length - 1];
-        if (lastMessage && lastMessage.role === 'assistant') {
-          lastMessage.thinking = false;
-        }
-        return { ...prev, messages: nextMessages };
-      });
+      commitAssistantPreview(fullContent, false);
 
       const finalMessages = [...newMessages, { role: 'assistant', content: fullContent }];
 
@@ -731,35 +802,23 @@ export default function ChatPage() {
 
     try {
       let fullContent = '';
+      let lastUiUpdateAt = 0;
       const streamFn = USE_MOCK
         ? () => mock.streamChatMock(effectiveModel, nextMessages)
         : () => streamChat(effectiveModel, nextMessages, { chatTarget: currentChat.chatTarget || null });
 
       for await (const chunk of streamFn()) {
         fullContent += chunk;
-        setCurrentChat(prev => {
-          if (!prev) return prev;
-          const regeneratedMessages = [...prev.messages];
-          const lastMessage = regeneratedMessages[regeneratedMessages.length - 1];
-          if (lastMessage && lastMessage.role === 'assistant') {
-            lastMessage.content = fullContent;
-            lastMessage.thinking = false;
-          } else {
-            regeneratedMessages.push({ role: 'assistant', content: fullContent, thinking: false });
-          }
-          return { ...prev, messages: regeneratedMessages };
-        });
+        const now = Date.now();
+        if (now - lastUiUpdateAt < STREAM_UI_UPDATE_INTERVAL_MS) {
+          continue;
+        }
+
+        lastUiUpdateAt = now;
+        commitAssistantPreview(fullContent, false);
       }
 
-      setCurrentChat(prev => {
-        if (!prev) return prev;
-        const regeneratedMessages = [...prev.messages];
-        const lastMessage = regeneratedMessages[regeneratedMessages.length - 1];
-        if (lastMessage && lastMessage.role === 'assistant') {
-          lastMessage.thinking = false;
-        }
-        return { ...prev, messages: regeneratedMessages };
-      });
+      commitAssistantPreview(fullContent, false);
 
       if (USE_MOCK) {
         mock.updateChat(currentChat.id, {
@@ -982,7 +1041,11 @@ export default function ChatPage() {
             />
           ) : (
             <>
-              <main className="relative flex-1 overflow-y-auto px-2.5 py-3 sm:px-6 sm:py-6">
+              <main
+                ref={chatScrollRef}
+                onScroll={syncScrollState}
+                className="relative flex-1 overflow-y-auto px-2.5 py-3 [overflow-anchor:none] sm:px-6 sm:py-6"
+              >
                 {loadError ? (
                   <div className="flex h-full items-center justify-center px-4">
                     <div className="max-w-md px-4 text-center text-rose-300">
@@ -1029,7 +1092,7 @@ export default function ChatPage() {
                             </span>
                             <h2 className="mt-4 text-3xl font-semibold text-white sm:text-5xl">在这里开始下一段高效对话</h2>
                             <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-300/75 sm:text-base">
-                              支持多模型、流式回复和智能体人设。新建会话时输入框会停留在视觉焦点区，第一条消息发出后自动贴底。
+                              支持多模型、流式回复和智能体人设。
                             </p>
                             <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-300/70">
                               <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">流式回复</span>
@@ -1045,7 +1108,6 @@ export default function ChatPage() {
                           onSend={handleSend}
                           disabled={isLoading || !selectedModel}
                           layout="centered"
-                          autoFocus
                         />
                       </div>
                     </div>
@@ -1069,9 +1131,21 @@ export default function ChatPage() {
               </main>
 
               {!showCenteredComposer && !loadError && models.length > 0 && (
-                  <div className="px-2 pb-[calc(env(safe-area-inset-bottom)+0.55rem)] pt-1.5 sm:px-6 sm:pb-4 sm:pt-2">
+                  <div className="relative px-2 pb-[calc(env(safe-area-inset-bottom)+0.55rem)] pt-1.5 sm:px-6 sm:pb-4 sm:pt-2">
+                  <button
+                    type="button"
+                    onClick={scrollToLatest}
+                    className={`absolute bottom-[calc(100%+50px)] right-4 z-20 inline-flex h-12 w-12 items-center justify-center rounded-full border border-sky-400/20 bg-[linear-gradient(180deg,rgba(30,41,59,0.96),rgba(15,23,42,0.98))] text-sky-100 shadow-[0_18px_32px_rgba(15,23,42,0.24)] backdrop-blur-xl transition-all duration-200 sm:right-6 ${showScrollToBottom ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none translate-y-[200px] opacity-0'}`}
+                    title="回到底部"
+                    aria-hidden={!showScrollToBottom}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M7 13l5 5 5-5" />
+                      <path d="M7 6l5 5 5-5" />
+                    </svg>
+                  </button>
                   <div className="mx-auto w-full max-w-5xl">
-                    <ChatInput onSend={handleSend} disabled={isLoading || !selectedModel} autoFocus />
+                    <ChatInput onSend={handleSend} disabled={isLoading || !selectedModel} />
                   </div>
                 </div>
               )}

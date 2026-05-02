@@ -15,29 +15,30 @@ export default function ChatMessage({ role, content, onRegenerate, isThinking = 
 
   return (
     <div className="flex justify-center px-3 py-3 sm:px-4 sm:py-4">
-      <div className={`mx-auto flex w-full max-w-5xl ${isUser ? 'justify-end' : 'items-start gap-3 sm:gap-4'}`}>
+      <div className={`mx-auto flex w-full max-w-5xl ${isUser ? 'justify-end' : 'items-start'}`}>
         {isUser ? (
           <div className="max-w-[92%] break-words rounded-[26px] border border-sky-500/20 bg-[linear-gradient(135deg,rgba(37,99,235,0.24),rgba(30,41,59,0.96))] px-4 py-3 text-white shadow-[0_10px_24px_rgba(30,64,175,0.14)] sm:max-w-[72%] sm:px-5 sm:py-4">
             <div className="mb-2 flex items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-100/70">
               <span>Me</span>
             </div>
-            <div className="prose prose-invert max-w-none text-[15px] leading-relaxed sm:text-base">
+            <div className="prose prose-invert max-w-none select-text touch-auto text-[15px] leading-relaxed [-webkit-touch-callout:default] [-webkit-user-select:text] sm:text-base">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {content}
                 </ReactMarkdown>
               </div>
           </div>
         ) : (
-          <>
-            <IdentityAvatar name={assistantName} avatarUrl={assistantAvatarUrl} size="sm" className="mt-1 shrink-0" />
-            <div className="min-w-0 flex-1 break-words rounded-[28px] border border-slate-700/60 bg-[linear-gradient(180deg,rgba(30,41,59,0.52),rgba(15,23,42,0.58))] px-4 py-4 shadow-[0_14px_32px_rgba(15,23,42,0.16)] backdrop-blur-md sm:px-5">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-200/70">Assistant</div>
-                  <div className="mt-1 text-sm font-medium text-white">{assistantName}</div>
+          <div className="min-w-0 w-full flex-1 break-words rounded-[28px] border border-slate-700/60 bg-[linear-gradient(180deg,rgba(30,41,59,0.52),rgba(15,23,42,0.58))] px-4 py-4 shadow-[0_14px_32px_rgba(15,23,42,0.16)] backdrop-blur-md sm:px-5">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-3">
+                  <IdentityAvatar name={assistantName} avatarUrl={assistantAvatarUrl} size="sm" className="mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-200/70">Assistant</div>
+                    <div className="mt-1 truncate text-sm font-medium text-white">{assistantName}</div>
+                  </div>
                 </div>
                 {isThinking ? (
-                  <span className="rounded-full border border-slate-600/60 bg-slate-700/35 px-2.5 py-1 text-[11px] text-slate-300/80">
+                  <span className="shrink-0 rounded-full border border-slate-600/60 bg-slate-700/35 px-2.5 py-1 text-[11px] text-slate-300/80">
                     正在思考
                   </span>
                 ) : null}
@@ -50,7 +51,7 @@ export default function ChatMessage({ role, content, onRegenerate, isThinking = 
                     <span className="h-2 w-2 rounded-full bg-slate-400/60 animate-pulse [animation-delay:300ms]" />
                   </div>
                 ) : (
-                  <div className="prose prose-invert max-w-none text-[15px] leading-relaxed sm:text-base">
+                  <div className="prose prose-invert max-w-none select-text touch-auto text-[15px] leading-relaxed [-webkit-touch-callout:default] [-webkit-user-select:text] sm:text-base">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {content}
                     </ReactMarkdown>
@@ -87,7 +88,6 @@ export default function ChatMessage({ role, content, onRegenerate, isThinking = 
                 )}
               </div>}
             </div>
-          </>
         )}
       </div>
     </div>

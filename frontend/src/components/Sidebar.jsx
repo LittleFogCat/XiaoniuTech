@@ -31,7 +31,7 @@ export default function Sidebar({ chats, currentChatId, onSelectChat, onNewChat,
   };
 
   const renderChatItems = (isMobile = false) => (
-    <div className="flex-1 overflow-y-auto px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+    <div className="flex-1 overflow-y-auto px-3 pb-[max(0.35rem,env(safe-area-inset-bottom))]">
       {chats.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-slate-400/70">
           还没有会话，先开始一段新的对话。
