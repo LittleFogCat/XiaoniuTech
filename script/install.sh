@@ -2,7 +2,15 @@
 set -eu
 
 usage() {
-  echo "Usage: sh install.sh [--outputdir target_dir] [--include backend,frontend,conf]"
+  cat <<'EOF'
+Usage: sh install.sh [--outputdir target_dir] [--artifact backend,frontend,conf]
+
+Options:
+  --outputdir target_dir   Deployment target directory. Default: /usr/local/compose
+  --artifact, --include    Comma-separated artifacts to deploy. Default: backend,frontend,conf
+  -A, -I                   Short aliases for --artifact and --include
+  --help, -H               Show this help message
+EOF
 }
 
 command_exists() {
@@ -201,6 +209,86 @@ has_artifact() {
   esac
 }
 
+is_supported_artifact() {
+  case "$1" in
+    backend|frontend|conf)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+dir_has_contents() {
+  dir="$1"
+
+  if [ ! -d "$dir" ]; then
+    return 1
+  fi
+
+  find "$dir" -mindepth 1 -print -quit 2>/dev/null | grep -q .
+}
+
+validate_requested_artifacts() {
+  requested_count=0
+  previous_ifs=$IFS
+  IFS=','
+  set -- $INCLUDE
+  IFS=$previous_ifs
+
+  for artifact in "$@"; do
+    if [ -z "$artifact" ]; then
+      continue
+    fi
+
+    requested_count=$((requested_count + 1))
+
+    if ! is_supported_artifact "$artifact"; then
+      echo "Unsupported artifact: $artifact" >&2
+      usage >&2
+      exit 1
+    fi
+
+    case "$artifact" in
+      backend)
+        if ! dir_has_contents "$PACKAGE_DIR/backend"; then
+          echo "Requested artifact 'backend' is missing from package directory: $PACKAGE_DIR/backend" >&2
+          exit 1
+        fi
+        ;;
+      frontend)
+        if ! dir_has_contents "$PACKAGE_DIR/frontend"; then
+          echo "Requested artifact 'frontend' is missing from package directory: $PACKAGE_DIR/frontend" >&2
+          exit 1
+        fi
+        ;;
+      conf)
+        if ! dir_has_contents "$PACKAGE_DIR/conf/nginx"; then
+          echo "Requested artifact 'conf' is missing nginx config directory: $PACKAGE_DIR/conf/nginx" >&2
+          exit 1
+        fi
+
+        if ! dir_has_contents "$PACKAGE_DIR/conf/backend"; then
+          echo "Requested artifact 'conf' is missing backend config directory: $PACKAGE_DIR/conf/backend" >&2
+          exit 1
+        fi
+
+        if [ ! -f "$PACKAGE_DIR/conf/compose/docker-compose.yml" ]; then
+          echo "Requested artifact 'conf' is missing compose file: $PACKAGE_DIR/conf/compose/docker-compose.yml" >&2
+          exit 1
+        fi
+        ;;
+    esac
+  done
+
+  if [ "$requested_count" -eq 0 ]; then
+    echo "No artifacts selected. Use --artifact or --include to choose backend, frontend, conf." >&2
+    usage >&2
+    exit 1
+  fi
+}
+
 archive_with_python() {
   pybin="$1"
   src="$2"
@@ -296,16 +384,16 @@ while [ $# -gt 0 ]; do
       OUTPUT_DIR="$2"
       shift 2
       ;;
-    --include)
+    --artifact|--include|-A|-I)
       if [ $# -lt 2 ]; then
-        echo "Missing value for --include" >&2
+        echo "Missing value for $1" >&2
         usage
         exit 1
       fi
       INCLUDE="$2"
       shift 2
       ;;
-    --help)
+    --help|-H)
       usage
       exit 0
       ;;
@@ -324,6 +412,7 @@ PROJECT_DIR="$OUTPUT_DIR"
 TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
 BACKUP_DIR="$PROJECT_DIR/bak"
 
+validate_requested_artifacts
 ensure_docker_prerequisites
 
 mkdir -p "$BACKUP_DIR"

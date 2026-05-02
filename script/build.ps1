@@ -2,7 +2,16 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 function Show-Usage {
-  Write-Host 'Usage: build.bat [--output target_dir] [--artifact backend,frontend,conf] [--keeptmpfile]'
+  @(
+    'Usage: build.bat [--output target_dir] [--artifact backend,frontend,conf] [--keeptmpfile]',
+    '',
+    'Options:',
+    '  --output target_dir   Output directory. Default: tmp/build',
+    '  --artifact value      Comma-separated artifacts to package. Default: backend,frontend,conf',
+    '  -A value              Alias of --artifact. Supports short form like -Ab or -Abfc',
+    '  --keeptmpfile         Keep the extracted target/ directory',
+    '  --help, -H            Show this help message'
+  ) | ForEach-Object { Write-Host $_ }
 }
 
 function Resolve-AbsolutePath {
@@ -59,6 +68,35 @@ function Parse-Artifacts {
   }
 
   return $artifacts
+}
+
+function Resolve-ArtifactArgument {
+  param([string]$ArgumentValue)
+
+  $normalized = $ArgumentValue.Trim().ToLowerInvariant()
+  if (-not $normalized) {
+    throw 'Missing value for --artifact'
+  }
+
+  if ($normalized -match '^[bfc]+$') {
+    $artifactMap = @{
+      b = 'backend'
+      f = 'frontend'
+      c = 'conf'
+    }
+    $expandedArtifacts = @()
+
+    foreach ($code in $normalized.ToCharArray()) {
+      $artifact = $artifactMap[[string]$code]
+      if ($expandedArtifacts -notcontains $artifact) {
+        $expandedArtifacts += $artifact
+      }
+    }
+
+    return $expandedArtifacts -join ','
+  }
+
+  return $normalized
 }
 
 function Get-BackendIgnoreRules {
@@ -207,25 +245,40 @@ $keepTmpFile = $false
 
 for ($index = 0; $index -lt $args.Count; $index += 1) {
   $argument = [string]$args[$index]
-  switch ($argument) {
-    '--output' {
+  switch -Regex ($argument) {
+    '^--output$' {
       if ($index + 1 -ge $args.Count) {
         throw 'Missing value for --output'
       }
       $index += 1
       $outputRoot = Resolve-AbsolutePath -Path ([string]$args[$index]) -BasePath $currentDir
+      break
     }
-    '--artifact' {
+    '^--artifact$' {
       if ($index + 1 -ge $args.Count) {
         throw 'Missing value for --artifact'
       }
       $index += 1
-      $artifactsCsv = [string]$args[$index]
+      $artifactsCsv = Resolve-ArtifactArgument -ArgumentValue ([string]$args[$index])
+      break
     }
-    '--keeptmpfile' {
+    '^-A$' {
+      if ($index + 1 -ge $args.Count) {
+        throw 'Missing value for -A'
+      }
+      $index += 1
+      $artifactsCsv = Resolve-ArtifactArgument -ArgumentValue ([string]$args[$index])
+      break
+    }
+    '^-A(.+)$' {
+      $artifactsCsv = Resolve-ArtifactArgument -ArgumentValue $Matches[1]
+      break
+    }
+    '^--keeptmpfile$' {
       $keepTmpFile = $true
+      break
     }
-    '--help' {
+    '^(--help|-H)$' {
       Show-Usage
       exit 0
     }
