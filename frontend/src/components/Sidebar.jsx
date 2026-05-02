@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import useTransientScrollbar from '../hooks/useTransientScrollbar';
 
 export default function Sidebar({ chats, currentChatId, onSelectChat, onNewChat, onDeleteChat, collapsed, onToggleCollapse, mobileOpen = false, onClose }) {
   const [hoveredChat, setHoveredChat] = useState(null);
+  const { isScrollbarVisible, markScrollbarVisible } = useTransientScrollbar();
 
   const formatTime = (timestamp) => {
     const date = new Date(timestamp);
@@ -31,7 +33,10 @@ export default function Sidebar({ chats, currentChatId, onSelectChat, onNewChat,
   };
 
   const renderChatItems = (isMobile = false) => (
-    <div className="flex-1 overflow-y-auto px-3 pb-[max(0.35rem,env(safe-area-inset-bottom))]">
+    <div
+      onScroll={markScrollbarVisible}
+      className={`scrollbar-auto-hide flex-1 overflow-y-auto px-3 pb-[max(0.35rem,env(safe-area-inset-bottom))] ${isScrollbarVisible ? 'scrollbar-active' : ''}`}
+    >
       {chats.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-slate-400/70">
           还没有会话，先开始一段新的对话。

@@ -1,6 +1,8 @@
 import IdentityAvatar from './IdentityAvatar';
+import useTransientScrollbar from '../hooks/useTransientScrollbar';
 
 export default function IdentityPicker({ identities, chats, onSelectIdentity, onBack }) {
+  const { isScrollbarVisible, markScrollbarVisible } = useTransientScrollbar();
   const usedIdentityIds = new Set(
     chats
       .filter(chat => chat?.chatTarget?.type === 'identity')
@@ -28,7 +30,10 @@ export default function IdentityPicker({ identities, chats, onSelectIdentity, on
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+      <div
+        onScroll={markScrollbarVisible}
+        className={`scrollbar-auto-hide flex-1 overflow-y-auto px-5 py-5 sm:px-6 ${isScrollbarVisible ? 'scrollbar-active' : ''}`}
+      >
         {identities.length === 0 ? (
           <div className="flex h-full min-h-[280px] items-center justify-center rounded-[28px] border border-dashed border-slate-700/60 bg-slate-900/20 px-6 text-center text-slate-300/70">
             暂无可用智能体，请在服务端配置 identities 目录后重试。

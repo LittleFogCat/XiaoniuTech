@@ -6,6 +6,7 @@ import Sidebar from '../components/Sidebar';
 import Login from '../components/Login';
 import IdentityAvatar from '../components/IdentityAvatar';
 import IdentityPicker from '../components/IdentityPicker';
+import useTransientScrollbar from '../hooks/useTransientScrollbar';
 import {
   fetchModels,
   fetchIdentities,
@@ -29,9 +30,37 @@ const CHAT_VIEW = {
   identities: 'identities',
 };
 const DEFAULT_ASSISTANT_NAME = 'AI 助手';
+const CHAT_THEME_COLOR = '#162033';
 const STREAM_UI_UPDATE_INTERVAL_MS = 100;
 const SCROLL_BOTTOM_THRESHOLD_PX = 48;
 const SCROLL_POSITION_EPSILON_PX = 0.5;
+
+function setNamedMetaContent(name, content) {
+  let meta = document.querySelector(`meta[name="${name}"]`);
+  const created = !meta;
+
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.setAttribute('name', name);
+    document.head.appendChild(meta);
+  }
+
+  const previousContent = meta.getAttribute('content');
+  meta.setAttribute('content', content);
+
+  return () => {
+    if (previousContent === null) {
+      if (created) {
+        meta.remove();
+      } else {
+        meta.removeAttribute('content');
+      }
+      return;
+    }
+
+    meta.setAttribute('content', previousContent);
+  };
+}
 
 function is404Error(error) {
   return error instanceof Error && /\b404\b/.test(error.message);
@@ -145,6 +174,7 @@ export default function ChatPage() {
   const messagesEndRef = useRef(null);
   const mobileActionsRef = useRef(null);
   const isPinnedToBottomRef = useRef(true);
+  const { isScrollbarVisible: isChatScrollbarVisible, markScrollbarVisible: markChatScrollbarVisible } = useTransientScrollbar();
   const safeMessages = Array.isArray(currentChat?.messages) ? currentChat.messages : [];
   const isGuest = authMode === GUEST_MODE;
   const activeIdentity = resolveIdentityMeta(currentChat, identities);
@@ -154,6 +184,21 @@ export default function ChatPage() {
   const assistantAvatarUrl = activeIdentity?.avatarUrl || '';
   const authActionLabel = isGuest ? '登录' : '退出';
   const authActionTitle = isGuest ? '返回登录页' : '退出登录';
+
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const restoreThemeColor = setNamedMetaContent('theme-color', CHAT_THEME_COLOR);
+
+    html.classList.add('chat-page-active');
+    body.classList.add('chat-page-active');
+
+    return () => {
+      restoreThemeColor();
+      html.classList.remove('chat-page-active');
+      body.classList.remove('chat-page-active');
+    };
+  }, []);
 
   useEffect(() => {
     if (viewMode === CHAT_VIEW.identities) {
@@ -249,6 +294,11 @@ export default function ChatPage() {
       const nextValue = !isAtBottom;
       return previous === nextValue ? previous : nextValue;
     });
+  };
+
+  const handleChatScroll = () => {
+    syncScrollState();
+    markChatScrollbarVisible();
   };
 
   const commitAssistantPreview = (content, thinking = false) => {
@@ -874,7 +924,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="relative flex h-[100dvh] overflow-hidden bg-[#162033] text-white">
+    <div className="relative flex min-h-[100svh] h-[100dvh] overflow-hidden bg-[#162033] text-white [overscroll-behavior-y:none]">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.10),transparent_28%),radial-gradient(circle_at_80%_16%,rgba(99,102,241,0.08),transparent_24%),radial-gradient(circle_at_50%_100%,rgba(30,41,59,0.22),transparent_34%)]" />
         <div className="absolute inset-0 opacity-[0.08] [background-image:linear-gradient(rgba(148,163,184,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.12)_1px,transparent_1px)] [background-size:48px_48px]" />
@@ -892,8 +942,8 @@ export default function ChatPage() {
         onClose={() => setMobileSidebarOpen(false)}
       />
 
-      <div className="relative z-10 flex min-w-0 flex-1 flex-col p-1.5 sm:p-3">
-        <header className="relative z-30 flex items-center gap-2.5 rounded-[24px] border border-slate-700/60 bg-[linear-gradient(180deg,rgba(30,41,59,0.82),rgba(17,24,39,0.82))] px-2.5 py-2.5 shadow-[0_12px_28px_rgba(15,23,42,0.16)] backdrop-blur-lg sm:gap-3 sm:rounded-[28px] sm:px-4 sm:py-3.5 sm:shadow-[0_16px_38px_rgba(15,23,42,0.18)]">
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col p-0 sm:p-3">
+        <header className="relative z-30 flex items-center gap-2.5 border-b border-slate-700/60 bg-[linear-gradient(180deg,rgba(30,41,59,0.82),rgba(17,24,39,0.82))] px-2.5 py-2.5 backdrop-blur-lg sm:gap-3 sm:rounded-[28px] sm:border sm:px-4 sm:py-3.5 sm:shadow-[0_16px_38px_rgba(15,23,42,0.18)]">
           <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
             <button
               onClick={() => setMobileSidebarOpen(true)}
@@ -1031,7 +1081,7 @@ export default function ChatPage() {
           </div>
         )}
 
-        <div className="relative z-0 mt-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[26px] border border-slate-700/60 bg-[linear-gradient(180deg,rgba(30,41,59,0.72),rgba(15,23,42,0.76))] shadow-[0_12px_30px_rgba(15,23,42,0.16)] backdrop-blur-lg sm:mt-3 sm:rounded-[30px] sm:shadow-[0_16px_40px_rgba(15,23,42,0.18)]">
+        <div className="relative z-0 mt-0 flex min-h-0 flex-1 flex-col overflow-hidden rounded-none border-0 bg-[linear-gradient(180deg,rgba(30,41,59,0.72),rgba(15,23,42,0.76))] shadow-none backdrop-blur-lg sm:mt-3 sm:rounded-[30px] sm:border sm:border-slate-700/60 sm:shadow-[0_16px_40px_rgba(15,23,42,0.18)]">
           {viewMode === CHAT_VIEW.identities ? (
             <IdentityPicker
               identities={identities}
@@ -1043,8 +1093,8 @@ export default function ChatPage() {
             <>
               <main
                 ref={chatScrollRef}
-                onScroll={syncScrollState}
-                className="relative flex-1 overflow-y-auto px-2.5 py-3 [overflow-anchor:none] sm:px-6 sm:py-6"
+                onScroll={handleChatScroll}
+                className={`scrollbar-auto-hide relative flex-1 overflow-y-auto px-2.5 py-3 [overflow-anchor:none] [overscroll-behavior-y:contain] sm:px-6 sm:py-6 ${isChatScrollbarVisible ? 'scrollbar-active' : ''}`}
               >
                 {loadError ? (
                   <div className="flex h-full items-center justify-center px-4">
