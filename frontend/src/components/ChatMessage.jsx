@@ -21,7 +21,7 @@ export default function ChatMessage({ role, content, onRegenerate, isThinking = 
             <div className="mb-2 flex items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-100/70">
               <span>Me</span>
             </div>
-            <div className="prose prose-invert max-w-none select-text touch-auto text-[15px] leading-relaxed [-webkit-touch-callout:default] [-webkit-user-select:text] sm:text-base">
+            <div className="prose prose-invert max-w-none select-text touch-auto text-[15px] leading-relaxed [-webkit-touch-callout:default] [-webkit-user-select:text] sm:text-base sm:leading-loose sm:tracking-wide">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {content}
                 </ReactMarkdown>
@@ -51,7 +51,7 @@ export default function ChatMessage({ role, content, onRegenerate, isThinking = 
                     <span className="h-2 w-2 rounded-full bg-slate-400/60 animate-pulse [animation-delay:300ms]" />
                   </div>
                 ) : (
-                  <div className="prose prose-invert max-w-none select-text touch-auto text-[15px] leading-relaxed [-webkit-touch-callout:default] [-webkit-user-select:text] sm:text-base">
+                  <div className="prose prose-invert max-w-none select-text touch-auto text-[15px] leading-relaxed [-webkit-touch-callout:default] [-webkit-user-select:text] sm:text-base sm:leading-loose sm:tracking-wide">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {content}
                     </ReactMarkdown>
