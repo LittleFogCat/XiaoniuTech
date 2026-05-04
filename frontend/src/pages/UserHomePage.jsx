@@ -47,7 +47,7 @@ export default function UserHomePage({ nickname: propNickname }) {
 
   return (
     <div className="min-h-screen" style={{ background: '#050816' }}>
-      <BlogHeader hideBackButton contentWidth="max-w-4xl" />
+      <BlogHeader contentWidth="max-w-4xl" />
 
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
         {loading ? (

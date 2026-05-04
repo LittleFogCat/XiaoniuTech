@@ -216,7 +216,7 @@ export default function Login({ onLogin, onBack }) {
             </button>
           )}
           <div className="mb-8 text-center">
-            <h1 className="mb-2 text-3xl font-bold text-slate-50">XN Chat</h1>
+            <h1 className="mb-2 text-3xl font-bold text-slate-50">XiaoNiu Tech</h1>
             <p className="text-slate-300/70">{isRegisterMode ? '注册新账号并完成邮箱验证' : '欢迎回来，请登录'}</p>
           </div>
 
@@ -435,7 +435,7 @@ export default function Login({ onLogin, onBack }) {
         </div>
 
         <p className="mt-6 text-center text-sm text-slate-400/60">
-          © 2026 XN Chat. All rights reserved.
+          © 2026 XiaoNiu Tech. All rights reserved.
         </p>
       </div>
     </div>
