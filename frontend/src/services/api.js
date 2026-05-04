@@ -60,7 +60,11 @@ export async function requestRegistration(email, password, captchaId, captchaAns
 
   const data = await readJsonSafely(res);
   if (!res.ok) {
-    throw new Error(data.error || `Registration request failed: ${res.status}`);
+    const error = new Error(data.error || `Registration request failed: ${res.status}`);
+    error.retryAfterSeconds = data.retryAfterSeconds;
+    error.limitType = data.limitType;
+    error.remainingThisHour = data.remainingThisHour;
+    throw error;
   }
 
   return data;

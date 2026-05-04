@@ -6,6 +6,7 @@ import authRouter from './routes/auth.js';
 import chatRouter from './routes/chat.js';
 import uploadRouter from './routes/upload.js';
 import { connectMongoDB } from './db/mongoose.js';
+import { backfillFileMd5sInBackground } from './services/fileStore.js';
 import { initializeIdentityCatalog } from './services/identityStore.js';
 
 const app = express();
@@ -32,6 +33,7 @@ async function startServer() {
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });
+    void backfillFileMd5sInBackground();
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);

@@ -111,6 +111,31 @@ export async function createPost(data) {
   return result.post;
 }
 
+export async function importMarkdownArticles(fileList) {
+  const files = Array.from(fileList || []).filter((file) => /\.md$/i.test(file.name));
+  if (files.length === 0) {
+    throw new Error('请选择至少一个 .md 文件');
+  }
+
+  const articles = await Promise.all(files.map(async (file) => ({
+    name: file.name,
+    relativePath: file.webkitRelativePath || file.name,
+    content: await file.text(),
+  })));
+
+  const res = await fetch(`${API_BASE}/import`, {
+    method: 'POST',
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ articles }),
+  });
+
+  if (!res.ok) {
+    await throwRequestError(res, 'Failed to import markdown articles');
+  }
+
+  return res.json();
+}
+
 export async function updatePost(slug, data) {
   const res = await fetch(`${API_BASE}/posts/${slug}`, {
     method: 'PUT',

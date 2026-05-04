@@ -19,6 +19,7 @@ import {
   getStats,
   listComments,
   addComment,
+  importPosts,
 } from '../services/blogStore.js';
 import { readBearerToken, verifyAuthToken } from '../services/auth.js';
 import User from '../models/User.js';
@@ -159,6 +160,15 @@ router.post('/posts', requireAuth, async (req, res) => {
   try {
     const post = await createPost(req.user.username, req.body || {});
     res.status(201).json({ post });
+  } catch (error) {
+    res.status(getStatusCode(error)).json({ error: error.message });
+  }
+});
+
+router.post('/import', requireAuth, async (req, res) => {
+  try {
+    const result = await importPosts(req.user.username, req.body?.articles || []);
+    res.status(result.importedCount > 0 ? 201 : 400).json(result);
   } catch (error) {
     res.status(getStatusCode(error)).json({ error: error.message });
   }

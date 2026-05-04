@@ -2,6 +2,8 @@ import crypto from 'crypto';
 import BlogPost from '../models/BlogPost.js';
 import BlogComment from '../models/BlogComment.js';
 import User from '../models/User.js';
+import { clearFileReferencesForBiz, syncFileReferencesForBiz } from './fileReferenceStore.js';
+import { materializeMarkdownImages } from './fileStore.js';
 
 const HASH_BYTES = 8;
 
@@ -22,6 +24,82 @@ function countWords(content) {
 
 function notTrashed(query) {
   query.trashed = { $ne: true };
+}
+
+async function preparePostContent(title, content) {
+  const preparedTitle = title.trim();
+  const preparedContent = String(content || '').trim();
+
+  if (!preparedTitle) {
+    const error = new Error('标题不能为空');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!preparedContent) {
+    const error = new Error('内容不能为空');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const { content: normalizedContent, fileIds } = await materializeMarkdownImages(preparedContent);
+
+  return {
+    title: preparedTitle,
+    content: normalizedContent,
+    excerpt: generateExcerpt(normalizedContent),
+    wordCount: countWords(preparedTitle) + countWords(normalizedContent),
+    fileIds,
+  };
+}
+
+async function syncPostImageReferences(postId, fileIds) {
+  await syncFileReferencesForBiz({
+    bizType: 'blog_post_image',
+    bizId: String(postId),
+    fileIds,
+  });
+}
+
+function getImportName(article = {}) {
+  return String(article.relativePath || article.name || '').trim();
+}
+
+function getImportTitle(article = {}) {
+  const importName = getImportName(article);
+  const filename = importName.split(/[\\/]/).pop() || '未命名文章';
+  return filename.replace(/\.md$/i, '').trim() || '未命名文章';
+}
+
+function deriveImportedPost(article = {}) {
+  const originalContent = String(article.content || '').replace(/^\uFEFF/, '').trim();
+  if (!originalContent) {
+    const error = new Error(`${getImportName(article) || '未命名文件'} 内容为空`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  let title = '';
+  let content = originalContent;
+  const lines = originalContent.split(/\r?\n/);
+  const firstContentIndex = lines.findIndex(line => line.trim() !== '');
+
+  if (firstContentIndex >= 0 && /^#\s+/.test(lines[firstContentIndex].trim())) {
+    title = lines[firstContentIndex].trim().replace(/^#\s+/, '').trim();
+    lines.splice(firstContentIndex, 1);
+    content = lines.join('\n').trim();
+  }
+
+  if (!title) {
+    title = getImportTitle(article);
+  }
+
+  return {
+    title,
+    content: content || originalContent,
+    tags: [],
+    published: false,
+  };
 }
 
 export async function listPosts({ page = 1, limit = 20, search, tag, author } = {}) {
@@ -93,18 +171,7 @@ export async function incrementViewCount(slug) {
 
 export async function createPost(author, data) {
   const { title, content, tags = [], published = false } = data;
-
-  if (!title || !title.trim()) {
-    const error = new Error('标题不能为空');
-    error.statusCode = 400;
-    throw error;
-  }
-
-  if (!content || !content.trim()) {
-    const error = new Error('内容不能为空');
-    error.statusCode = 400;
-    throw error;
-  }
+  const prepared = await preparePostContent(title, content);
 
   let slug;
   for (let i = 0; i < 5; i++) {
@@ -113,20 +180,19 @@ export async function createPost(author, data) {
     if (!exists) break;
   }
 
-  const excerpt = generateExcerpt(content);
-  const wordCount = countWords(title) + countWords(content);
-
   const post = await BlogPost.create({
-    title: title.trim(),
+    title: prepared.title,
     slug,
-    content,
-    excerpt,
+    content: prepared.content,
+    excerpt: prepared.excerpt,
     tags,
     author,
     published,
     publishedAt: published ? new Date() : null,
-    wordCount,
+    wordCount: prepared.wordCount,
   });
+
+  await syncPostImageReferences(post._id, prepared.fileIds);
 
   return post.toObject();
 }
@@ -147,17 +213,22 @@ export async function updatePost(slug, author, data) {
   }
 
   const { title, content, tags, published } = data;
+  let nextFileIds = null;
 
   if (title !== undefined) {
     post.title = title.trim();
   }
 
   if (content !== undefined) {
-    post.content = content;
-    post.excerpt = generateExcerpt(content);
+    const prepared = await preparePostContent(post.title, content);
+    post.title = prepared.title;
+    post.content = prepared.content;
+    post.excerpt = prepared.excerpt;
+    post.wordCount = prepared.wordCount;
+    nextFileIds = prepared.fileIds;
   }
 
-  if (title !== undefined || content !== undefined) {
+  if (title !== undefined && content === undefined) {
     post.wordCount = countWords(post.title) + countWords(post.content);
   }
 
@@ -171,6 +242,9 @@ export async function updatePost(slug, author, data) {
   }
 
   await post.save();
+  if (nextFileIds) {
+    await syncPostImageReferences(post._id, nextFileIds);
+  }
   return post.toObject();
 }
 
@@ -233,6 +307,7 @@ export async function permanentDeletePost(slug, author) {
   }
 
   await BlogComment.deleteMany({ postId: post._id });
+  await clearFileReferencesForBiz({ bizType: 'blog_post_image', bizId: String(post._id) });
   await post.deleteOne();
   return { success: true };
 }
@@ -393,4 +468,48 @@ export async function addComment(postId, author, content) {
   await BlogPost.findByIdAndUpdate(post._id, { $inc: { commentCount: 1 } });
 
   return comment.toObject();
+}
+
+export async function importPosts(author, articles = []) {
+  if (!Array.isArray(articles) || articles.length === 0) {
+    const error = new Error('请选择至少一个 Markdown 文件');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const results = [];
+
+  for (const article of articles) {
+    const importName = getImportName(article) || '未命名文件';
+
+    if (!/\.md$/i.test(importName)) {
+      results.push({
+        name: importName,
+        success: false,
+        error: '仅支持导入 .md 文件',
+      });
+      continue;
+    }
+
+    try {
+      const post = await createPost(author, deriveImportedPost(article));
+      results.push({
+        name: importName,
+        success: true,
+        post,
+      });
+    } catch (error) {
+      results.push({
+        name: importName,
+        success: false,
+        error: error.message || '导入失败',
+      });
+    }
+  }
+
+  return {
+    results,
+    importedCount: results.filter(result => result.success).length,
+    failedCount: results.filter(result => !result.success).length,
+  };
 }

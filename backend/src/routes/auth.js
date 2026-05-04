@@ -7,7 +7,13 @@ import {
   verifyPassword,
 } from '../services/auth.js';
 import { createCaptchaChallenge, consumeCaptchaChallenge } from '../services/captchaStore.js';
+import {
+  checkRegistrationSendAllowance,
+  getClientIp,
+  recordRegistrationSend,
+} from '../services/registrationRateLimit.js';
 import { sendRegistrationCodeEmail } from '../services/mail.js';
+import { syncFileReferencesForBiz } from '../services/fileReferenceStore.js';
 import PendingRegistration from '../models/PendingRegistration.js';
 import User from '../models/User.js';
 import File from '../models/File.js';
@@ -49,6 +55,7 @@ router.post('/register/request', async (req, res) => {
   try {
     console.log('[register/request] step=start email=', req.body?.email);
 
+    const ip = getClientIp(req);
     const email = normalizeEmail(req.body?.email);
     const password = String(req.body?.password || '');
     const captchaId = String(req.body?.captchaId || '');
@@ -60,6 +67,18 @@ router.post('/register/request', async (req, res) => {
 
     if (!isValidPassword(password)) {
       return res.status(400).json({ error: `密码长度需为 ${MIN_PASSWORD_LENGTH} 到 128 个字符` });
+    }
+
+    const allowance = checkRegistrationSendAllowance({ ip, email });
+    if (!allowance.allowed) {
+      return res.status(429).json({
+        error: allowance.limitType === 'ip_hourly'
+          ? '当前 IP 在 1 小时内最多只能发送 5 次验证码，请稍后再试'
+          : '验证码发送过于频繁，请 1 分钟后再试',
+        limitType: allowance.limitType,
+        retryAfterSeconds: Math.max(1, Math.ceil(allowance.retryAfterMs / 1000)),
+        remainingThisHour: allowance.remainingThisHour,
+      });
     }
 
     if (!captchaId || !captchaAnswer || !consumeCaptchaChallenge(captchaId, captchaAnswer)) {
@@ -101,12 +120,16 @@ router.post('/register/request', async (req, res) => {
       }
     );
 
+    const rateLimitState = recordRegistrationSend({ ip, email });
+
     console.log('[register/request] step=pending_saved elapsed_ms=', Date.now() - t0);
 
     res.json({
       success: true,
       email,
       expiresInMs: EMAIL_CODE_TTL_MS,
+      retryAfterSeconds: Math.ceil(rateLimitState.cooldownMs / 1000),
+      remainingThisHour: rateLimitState.remainingThisHour,
     });
 
     console.log('[register/request] step=sending_email background smtp_host=', process.env.ALIYUN_SMTP_HOST || process.env.SMTP_HOST || 'unset');
@@ -301,6 +324,11 @@ router.put('/user/profile', requireAuth, async (req, res) => {
     }
 
     await user.save();
+    await syncFileReferencesForBiz({
+      bizType: 'user_avatar',
+      bizId: String(user._id),
+      fileIds: user.avatarFileId ? [user.avatarFileId] : [],
+    });
 
     res.json({
       user: {

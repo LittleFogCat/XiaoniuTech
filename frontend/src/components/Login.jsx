@@ -7,6 +7,7 @@ import {
 } from '../services/api';
 
 const LOGIN_IDENTITY_KEY = 'login_username';
+const REGISTER_COOLDOWN_KEY = 'register_cooldown_until';
 const FIELD_LABEL_CLASS = 'mb-2 block text-sm font-medium text-slate-300/85';
 const INPUT_CLASS = 'w-full rounded-2xl border border-slate-600/60 bg-slate-800/55 px-4 py-3 text-slate-50 placeholder:text-slate-400/70 outline-none transition-all focus:border-sky-500/50 focus:bg-slate-800/75';
 const ERROR_CLASS = 'rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3';
@@ -16,6 +17,11 @@ const TABS_CONTAINER_CLASS = 'mb-6 grid grid-cols-2 rounded-2xl border border-sl
 
 function getStoredIdentity() {
   return localStorage.getItem(LOGIN_IDENTITY_KEY) || '';
+}
+
+function getStoredCooldownUntil() {
+  const raw = Number(localStorage.getItem(REGISTER_COOLDOWN_KEY) || 0);
+  return Number.isFinite(raw) && raw > Date.now() ? raw : 0;
 }
 
 export default function Login({ onLogin, onBack }) {
@@ -29,6 +35,11 @@ export default function Login({ onLogin, onBack }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [cooldownUntil, setCooldownUntil] = useState(() => getStoredCooldownUntil());
+  const [cooldownSeconds, setCooldownSeconds] = useState(() => {
+    const initial = getStoredCooldownUntil();
+    return initial ? Math.max(0, Math.ceil((initial - Date.now()) / 1000)) : 0;
+  });
 
   const isRegisterMode = mode === 'register';
 
@@ -43,6 +54,38 @@ export default function Login({ onLogin, onBack }) {
       void loadCaptcha();
     }
   }, [isRegisterMode, registerStep, captcha]);
+
+  useEffect(() => {
+    if (!cooldownUntil) {
+      setCooldownSeconds(0);
+      localStorage.removeItem(REGISTER_COOLDOWN_KEY);
+      return undefined;
+    }
+
+    const tick = () => {
+      const nextSeconds = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
+      setCooldownSeconds(nextSeconds);
+      if (nextSeconds === 0) {
+        setCooldownUntil(0);
+        localStorage.removeItem(REGISTER_COOLDOWN_KEY);
+      }
+    };
+
+    localStorage.setItem(REGISTER_COOLDOWN_KEY, String(cooldownUntil));
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [cooldownUntil]);
+
+  const isCooldownActive = cooldownSeconds > 0;
+
+  const applyCooldown = (seconds) => {
+    if (!seconds || seconds <= 0) {
+      setCooldownUntil(0);
+      return;
+    }
+    setCooldownUntil(Date.now() + seconds * 1000);
+  };
 
   const loadCaptcha = async () => {
     try {
@@ -99,6 +142,9 @@ export default function Login({ onLogin, onBack }) {
 
   const handleRequestRegistration = async (e) => {
     e.preventDefault();
+    if (isCooldownActive) {
+      return;
+    }
     setError('');
     setNotice('');
     setIsLoading(true);
@@ -110,10 +156,12 @@ export default function Login({ onLogin, onBack }) {
         captcha?.challengeId,
         captchaAnswer,
       );
+      applyCooldown(result.retryAfterSeconds || 60);
       setRegisterStep('verify');
       setVerificationCode('');
-      setNotice(`验证码已发送至 ${result.email}，10 分钟内有效。`);
+      setNotice(`验证码已发送至 ${result.email}，10 分钟内有效。${result.retryAfterSeconds ? ` ${result.retryAfterSeconds} 秒后可重新发送。` : ''}`);
     } catch (err) {
+      applyCooldown(err?.retryAfterSeconds || 0);
       setError(err instanceof Error ? err.message : '发送验证码失败');
       await loadCaptcha();
     } finally {
@@ -315,12 +363,18 @@ export default function Login({ onLogin, onBack }) {
                 </div>
               )}
 
+              {isCooldownActive && (
+                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                  已发送验证码，请在 {cooldownSeconds} 秒后重试。
+                </div>
+              )}
+
               <button
                 type="submit"
-                disabled={isLoading || !captcha?.challengeId}
+                disabled={isLoading || !captcha?.challengeId || isCooldownActive}
                 className={PRIMARY_BUTTON_CLASS}
               >
-                {isLoading ? '发送中...' : '发送邮箱验证码'}
+                {isLoading ? '发送中...' : isCooldownActive ? `${cooldownSeconds} 秒后可重发` : '发送邮箱验证码'}
               </button>
             </form>
           )}
@@ -330,6 +384,12 @@ export default function Login({ onLogin, onBack }) {
               <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-sm text-sky-100">
                 {notice || `验证码已发送到 ${email}`}
               </div>
+
+              {isCooldownActive && (
+                <div className="rounded-2xl border border-slate-700/60 bg-slate-900/35 px-4 py-3 text-sm text-slate-300">
+                  如需重发验证码，请返回上一步，{cooldownSeconds} 秒后可再次发送。
+                </div>
+              )}
 
               <div>
                 <label className={FIELD_LABEL_CLASS}>

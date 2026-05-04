@@ -22,10 +22,17 @@ const fileSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    md5: {
+      type: String,
+      default: '',
+      index: true,
+    },
   },
   {
     timestamps: true,
   }
 );
+
+fileSchema.index({ md5: 1, size: 1, mimetype: 1 });
 
 export default mongoose.model('File', fileSchema);
