@@ -1,0 +1,137 @@
+import { Router } from 'express';
+import crypto from 'crypto';
+import fs from 'fs/promises';
+import path from 'path';
+import os from 'os';
+import multer from 'multer';
+import sharp from 'sharp';
+import { requireAuth } from '../middleware/auth.js';
+import File from '../models/File.js';
+
+const router = Router();
+
+const UPLOAD_DIR = (() => {
+  if (process.platform === 'win32') {
+    const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+    return path.join(appData, 'xntech', 'images');
+  }
+  return '/app/files';
+})();
+
+const ALLOWED_MIMETYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+let uploadDirReady = false;
+
+async function ensureUploadDir() {
+  if (!uploadDirReady) {
+    await fs.mkdir(UPLOAD_DIR, { recursive: true });
+    uploadDirReady = true;
+  }
+}
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_FILE_SIZE },
+  fileFilter(req, file, cb) {
+    if (!ALLOWED_MIMETYPES.includes(file.mimetype)) {
+      const error = new Error('不支持的文件类型，仅允许 JPEG、PNG、GIF、WebP');
+      error.statusCode = 400;
+      return cb(error);
+    }
+    cb(null, true);
+  },
+});
+
+function generateFilename(originalName) {
+  const ext = path.extname(originalName).toLowerCase() || '.jpg';
+  const hash = crypto.createHash('sha256')
+    .update(originalName + Date.now() + crypto.randomBytes(4).toString('hex'))
+    .digest('hex')
+    .slice(0, 16);
+  return `${hash}${ext}`;
+}
+
+async function resizeImage(buffer, mimetype) {
+  const image = sharp(buffer);
+  const metadata = await image.metadata();
+
+  const maxDim = 1024;
+  const longEdge = Math.max(metadata.width || 0, metadata.height || 0);
+
+  if (longEdge <= maxDim) {
+    return image.toBuffer();
+  }
+
+  const format = mimetype === 'image/png' ? 'png' : 'jpeg';
+  const resizeOptions = longEdge === (metadata.width || 0)
+    ? { width: maxDim }
+    : { height: maxDim };
+
+  return image
+    .resize({ ...resizeOptions, withoutEnlargement: true, fit: 'inside' })
+    .toFormat(format, { quality: 85 })
+    .toBuffer();
+}
+
+router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
+  try {
+    await ensureUploadDir();
+
+    if (!req.file) {
+      return res.status(400).json({ error: '请选择文件' });
+    }
+
+    const processed = await resizeImage(req.file.buffer, req.file.mimetype);
+    const filename = generateFilename(req.file.originalname);
+    const filepath = path.join(UPLOAD_DIR, filename);
+
+    await fs.writeFile(filepath, processed);
+
+    const stat = await fs.stat(filepath);
+    const file = await File.create({
+      filename,
+      originalName: req.file.originalname,
+      path: filepath,
+      size: stat.size,
+      mimetype: req.file.mimetype,
+    });
+
+    res.status(201).json({
+      file: {
+        id: file._id,
+        filename: file.filename,
+        originalName: file.originalName,
+        size: file.size,
+        mimetype: file.mimetype,
+        createdAt: file.createdAt,
+      },
+    });
+  } catch (error) {
+    const status = error.statusCode || 500;
+    res.status(status).json({ error: error.message || '上传失败' });
+  }
+});
+
+router.get('/files/:id', async (req, res) => {
+  try {
+    const file = await File.findById(req.params.id).lean();
+    if (!file) {
+      return res.status(404).json({ error: '文件不存在' });
+    }
+
+    try {
+      await fs.access(file.path);
+    } catch {
+      return res.status(404).json({ error: '文件已被删除' });
+    }
+
+    res.setHeader('Content-Type', file.mimetype);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.sendFile(file.path);
+  } catch (error) {
+    res.status(500).json({ error: error.message || '获取文件失败' });
+  }
+});
+
+export default router;

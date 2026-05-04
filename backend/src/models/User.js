@@ -18,6 +18,32 @@ const UserSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    nickname: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    avatarFileId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'File',
+      default: null,
+    },
+    bio: {
+      type: String,
+      default: '',
+      maxlength: 200,
+    },
+    priority: {
+      type: Number,
+      default: 10,
+      min: 1,
+      max: 100,
+    },
+    role: {
+      type: String,
+      enum: ['owner', 'admin', 'member'],
+      default: 'member',
+    },
   },
   {
     timestamps: true,

@@ -1,7 +1,10 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import blogRouter from './routes/blog.js';
+import authRouter from './routes/auth.js';
 import chatRouter from './routes/chat.js';
+import uploadRouter from './routes/upload.js';
 import { connectMongoDB } from './db/mongoose.js';
 import { initializeIdentityCatalog } from './services/identityStore.js';
 
@@ -9,9 +12,12 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
+app.use('/api', authRouter);
 app.use('/api', chatRouter);
+app.use('/api/blog', blogRouter);
+app.use('/api', uploadRouter);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });

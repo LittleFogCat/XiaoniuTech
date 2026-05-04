@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import ChatMessage from '../components/ChatMessage';
 import ChatInput from '../components/ChatInput';
 import ModelSelect from '../components/ModelSelect';
@@ -182,8 +183,8 @@ export default function ChatPage() {
   const showCenteredComposer = viewMode === CHAT_VIEW.conversation && models.length > 0 && (!currentChat || !hasConversationStarted);
   const assistantName = activeIdentity?.name || DEFAULT_ASSISTANT_NAME;
   const assistantAvatarUrl = activeIdentity?.avatarUrl || '';
-  const authActionLabel = isGuest ? '登录' : '退出';
-  const authActionTitle = isGuest ? '返回登录页' : '退出登录';
+  const authActionLabel = isGuest ? '登录' : '登出';
+  const authActionTitle = isGuest ? '返回登录页' : '登出';
 
   useEffect(() => {
     const html = document.documentElement;
@@ -945,6 +946,16 @@ export default function ChatPage() {
       <div className="relative z-10 flex min-w-0 flex-1 flex-col p-0 sm:p-3">
         <header className="relative z-30 flex items-center gap-2.5 border-b border-slate-700/60 bg-[linear-gradient(180deg,rgba(30,41,59,0.82),rgba(17,24,39,0.82))] px-2.5 py-2.5 backdrop-blur-lg sm:gap-3 sm:rounded-[28px] sm:border sm:px-4 sm:py-3.5 sm:shadow-[0_16px_38px_rgba(15,23,42,0.18)]">
           <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
+            <Link
+              to="/"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-600/70 bg-slate-800/35 text-slate-100 transition hover:border-slate-500/80 hover:bg-slate-700/55"
+              title="返回主页"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
+            </Link>
             <button
               onClick={() => setMobileSidebarOpen(true)}
               className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-600/70 bg-slate-800/35 text-slate-100 transition hover:border-slate-500/80 hover:bg-slate-700/55 md:hidden"

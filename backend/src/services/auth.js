@@ -94,8 +94,10 @@ function scryptAsync(password, salt) {
 }
 
 export async function hashPassword(password) {
+  const t0 = Date.now();
   const salt = crypto.randomBytes(PASSWORD_SALT_BYTES).toString('hex');
   const hash = await scryptAsync(password, salt);
+  console.log('[auth] hashPassword elapsed_ms=', Date.now() - t0);
   return `scrypt:${PASSWORD_DIGEST}:${salt}:${hash}`;
 }
 

@@ -4,7 +4,7 @@ import './HomePage.css';
 
 const actionLinks = [
   { label: '进入 Chat', to: '/chat', variant: 'primary', type: 'internal' },
-  { label: '查看博客', to: 'https://www.jianshu.com/u/c8c42a7a2951', variant: 'secondary', type: 'external' },
+  { label: '查看博客', to: '/blog', variant: 'secondary', type: 'internal' },
   { label: 'Github', to: 'https://github.com/LittleFogCat', variant: 'ghost', type: 'external' },
 ];
 
@@ -19,8 +19,8 @@ const featureLinks = [
   {
     title: '技术博客',
     description: '工程记录与实践总结。',
-    to: 'https://www.jianshu.com/u/c8c42a7a2951',
-    type: 'external',
+    to: '/blog',
+    type: 'internal',
     tag: 'Writing',
   },
   {

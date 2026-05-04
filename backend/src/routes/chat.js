@@ -2,18 +2,7 @@ import { Router } from 'express';
 import { getAllModels, getDefaultModel } from '../config/models.js';
 import { getIdentityById, listPublicIdentities } from '../services/identityStore.js';
 import { streamCompletions } from '../services/provider.js';
-import {
-  createAuthToken,
-  generateEmailVerificationCode,
-  hashPassword,
-  readBearerToken,
-  verifyAuthToken,
-  verifyPassword,
-} from '../services/auth.js';
-import { createCaptchaChallenge, consumeCaptchaChallenge } from '../services/captchaStore.js';
-import { sendRegistrationCodeEmail } from '../services/mail.js';
-import PendingRegistration from '../models/PendingRegistration.js';
-import User from '../models/User.js';
+import { requireAuth } from '../middleware/auth.js';
 import {
   listChats,
   getChatById,
@@ -23,8 +12,6 @@ import {
 } from '../services/chatStore.js';
 
 const router = Router();
-const EMAIL_CODE_TTL_MS = 10 * 60 * 1000;
-const MIN_PASSWORD_LENGTH = 8;
 
 function getStatusCode(error, fallback = 500) {
   return error?.statusCode || fallback;
@@ -81,188 +68,6 @@ function buildCompletionMessages(messages, chatTarget) {
     ...messages,
   ];
 }
-
-// Admin account removed — no default admin credentials supported.
-
-function normalizeEmail(email = '') {
-  return String(email).trim().toLowerCase();
-}
-
-function isValidEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function isValidPassword(password) {
-  return typeof password === 'string' && password.length >= MIN_PASSWORD_LENGTH && password.length <= 128;
-}
-
-function buildUserResponse(identity) {
-  const email = identity.includes('@') ? identity : null;
-  return {
-    username: identity,
-    email,
-  };
-}
-
-function isDuplicateKeyError(error) {
-  return Boolean(error && typeof error === 'object' && error.code === 11000);
-}
-
-function requireAuth(req, res, next) {
-  const token = readBearerToken(req);
-  const payload = verifyAuthToken(token);
-
-  if (!payload) {
-    return res.status(401).json({ error: '未登录或登录已失效' });
-  }
-
-  req.user = {
-    username: payload.username,
-  };
-  return next();
-}
-
-router.get('/register/captcha', (req, res) => {
-  res.json(createCaptchaChallenge());
-});
-
-router.post('/register/request', async (req, res) => {
-  try {
-    const email = normalizeEmail(req.body?.email);
-    const password = String(req.body?.password || '');
-    const captchaId = String(req.body?.captchaId || '');
-    const captchaAnswer = String(req.body?.captchaAnswer || '');
-
-    if (!isValidEmail(email)) {
-      return res.status(400).json({ error: '请输入有效的邮箱地址' });
-    }
-
-    if (!isValidPassword(password)) {
-      return res.status(400).json({ error: `密码长度需为 ${MIN_PASSWORD_LENGTH} 到 128 个字符` });
-    }
-
-    if (!captchaId || !captchaAnswer || !consumeCaptchaChallenge(captchaId, captchaAnswer)) {
-      return res.status(400).json({ error: '人机验证失败，请刷新后重试' });
-    }
-
-    const existingUser = await User.findOne({ email }).select('_id').lean();
-    if (existingUser) {
-      return res.status(409).json({ error: '该邮箱已注册' });
-    }
-
-    const passwordHash = await hashPassword(password);
-    const verificationCode = generateEmailVerificationCode();
-    const verificationCodeHash = await hashPassword(verificationCode);
-    const expiresAt = new Date(Date.now() + EMAIL_CODE_TTL_MS);
-
-    await PendingRegistration.findOneAndUpdate(
-      { email },
-      {
-        email,
-        passwordHash,
-        verificationCodeHash,
-        expiresAt,
-      },
-      {
-        upsert: true,
-        new: true,
-        setDefaultsOnInsert: true,
-      }
-    );
-
-    await sendRegistrationCodeEmail(email, verificationCode);
-
-    return res.json({
-      success: true,
-      email,
-      expiresInMs: EMAIL_CODE_TTL_MS,
-    });
-  } catch (error) {
-    if (isDuplicateKeyError(error)) {
-      return res.status(409).json({ error: '该邮箱已注册' });
-    }
-    return res.status(500).json({ error: error.message || '发送验证码失败' });
-  }
-});
-
-router.post('/register/verify', async (req, res) => {
-  try {
-    const email = normalizeEmail(req.body?.email);
-    const code = String(req.body?.code || '').trim();
-
-    if (!isValidEmail(email)) {
-      return res.status(400).json({ error: '请输入有效的邮箱地址' });
-    }
-
-    if (!/^\d{6}$/.test(code)) {
-      return res.status(400).json({ error: '请输入 6 位邮箱验证码' });
-    }
-
-    const pendingRegistration = await PendingRegistration.findOne({ email }).lean();
-    if (!pendingRegistration) {
-      return res.status(400).json({ error: '验证码不存在或已失效，请重新注册' });
-    }
-
-    if (!pendingRegistration.expiresAt || new Date(pendingRegistration.expiresAt).getTime() <= Date.now()) {
-      await PendingRegistration.deleteOne({ email });
-      return res.status(400).json({ error: '验证码已过期，请重新注册' });
-    }
-
-    const isCodeValid = await verifyPassword(code, pendingRegistration.verificationCodeHash);
-    if (!isCodeValid) {
-      return res.status(400).json({ error: '验证码错误' });
-    }
-
-    const existingUser = await User.findOne({ email }).select('_id').lean();
-    if (existingUser) {
-      await PendingRegistration.deleteOne({ email });
-      return res.status(409).json({ error: '该邮箱已注册' });
-    }
-
-    const user = await User.create({
-      email,
-      passwordHash: pendingRegistration.passwordHash,
-      emailVerifiedAt: new Date(),
-    });
-
-    await PendingRegistration.deleteOne({ email });
-
-    return res.json({
-      success: true,
-      token: createAuthToken(user.email),
-      user: buildUserResponse(user.email),
-    });
-  } catch (error) {
-    if (isDuplicateKeyError(error)) {
-      return res.status(409).json({ error: '该邮箱已注册' });
-    }
-    return res.status(500).json({ error: error.message || '注册失败' });
-  }
-});
-
-router.post('/login', (req, res) => {
-  const { username = '', email = '', password = '' } = req.body || {};
-  const identity = String(email || username || '').trim();
-
-  if (!identity || !password) {
-    return res.status(400).json({ error: '邮箱和密码不能为空' });
-  }
-
-  return User.findOne({ email: normalizeEmail(identity) })
-    .lean()
-    .then(async (user) => {
-      if (!user || !(await verifyPassword(password, user.passwordHash))) {
-        return res.status(401).json({ error: '邮箱或密码错误' });
-      }
-
-      return res.json({
-        success: true,
-        token: createAuthToken(user.email),
-        user: buildUserResponse(user.email),
-      });
-    })
-    .catch(error => res.status(500).json({ error: error.message || '登录失败' }));
-});
 
 router.get('/chats', requireAuth, async (req, res) => {
   try {

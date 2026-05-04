@@ -12,5 +12,5 @@ location = /50x.html {
 }
 
 location /blog {
-    rewrite ^/blog(.*)$ https://www.jianshu.com/u/c8c42a7a2951 permanent;
+    try_files $uri $uri/ /index.html;
 }

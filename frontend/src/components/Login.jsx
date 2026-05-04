@@ -18,7 +18,7 @@ function getStoredIdentity() {
   return localStorage.getItem(LOGIN_IDENTITY_KEY) || '';
 }
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, onBack }) {
   const [mode, setMode] = useState('login');
   const [registerStep, setRegisterStep] = useState('form');
   const [email, setEmail] = useState(() => getStoredIdentity());
@@ -154,6 +154,19 @@ export default function Login({ onLogin }) {
 
       <div className="relative z-10 w-full max-w-md">
         <div className="rounded-[30px] border border-slate-700/60 bg-[linear-gradient(180deg,rgba(30,41,59,0.92),rgba(15,23,42,0.94))] p-8 shadow-[0_24px_60px_rgba(15,23,42,0.22)] backdrop-blur-xl">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="mb-4 -ml-2 inline-flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-sm text-slate-400 transition hover:text-slate-200"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+              返回
+            </button>
+          )}
           <div className="mb-8 text-center">
             <h1 className="mb-2 text-3xl font-bold text-slate-50">XN Chat</h1>
             <p className="text-slate-300/70">{isRegisterMode ? '注册新账号并完成邮箱验证' : '欢迎回来，请登录'}</p>
