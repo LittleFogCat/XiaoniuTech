@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { processMarkdown } from '../utils/markdown';
 
 export default function MarkdownEditor({ initialTitle = '', initialContent = '', initialTags = [], onSave, onCancel }) {
   const [title, setTitle] = useState(initialTitle);
@@ -103,7 +104,7 @@ export default function MarkdownEditor({ initialTitle = '', initialContent = '',
         )}
         <div className="md-content">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {content || '*暂无内容*'}
+            {processMarkdown(content || '*暂无内容*')}
           </ReactMarkdown>
         </div>
       </div>

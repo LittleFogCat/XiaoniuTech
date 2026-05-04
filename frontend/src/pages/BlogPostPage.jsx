@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { processMarkdown } from '../utils/markdown';
 import BlogHeader from '../components/BlogHeader';
 import BlogComment from '../components/BlogComment';
 import { fetchPost, incrementViewCount, isLoggedIn, likePost, unlikePost, isPostLiked, markPostLiked, markPostUnliked } from '../services/blogApi';
@@ -149,7 +150,7 @@ export default function BlogPostPage() {
 
           <div className="md-content">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {post.content}
+              {processMarkdown(post.content)}
             </ReactMarkdown>
           </div>
         </article>

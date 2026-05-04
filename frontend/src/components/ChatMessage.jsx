@@ -1,5 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { processMarkdown } from '../utils/markdown';
 import { useState } from 'react';
 import IdentityAvatar from './IdentityAvatar';
 
@@ -23,7 +24,7 @@ export default function ChatMessage({ role, content, onRegenerate, isThinking = 
             </div>
             <div className="prose prose-invert max-w-none select-text touch-auto text-[15px] leading-relaxed [-webkit-touch-callout:default] [-webkit-user-select:text] sm:text-base sm:leading-loose sm:tracking-wide">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {content}
+                  {processMarkdown(content)}
                 </ReactMarkdown>
               </div>
           </div>
