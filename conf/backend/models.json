@@ -3,6 +3,7 @@
   "longcat": {
     "baseUrl": "https://api.longcat.chat/openai/v1",
     "api": "openai-completions",
+    "apiKey": "${LONGCAT_API_KEY}",
     "authHeader": true,
     "models": [
       {
@@ -21,6 +22,7 @@
   "deepseek": {
     "baseUrl": "https://api.deepseek.com",
     "api": "openai-completions",
+    "apiKey": "${DEEPSEEK_API_KEY}",
     "authHeader": true,
     "models": [
       {
@@ -38,6 +40,7 @@
   "xiaomi": {
     "baseUrl": "https://api.xiaomimimo.com/v1/",
     "api": "openai-completions",
+    "apiKey": "${XIAOMI_API_KEY}",
     "authHeader": true,
     "models": [
       {
@@ -53,6 +56,7 @@
   "zai": {
     "baseUrl": "https://api.z.ai/api/paas/v4",
     "api": "openai-completions",
+    "apiKey": "${ZAI_API_KEY}",
     "models": [
       {
         "id": "glm-5.1",
@@ -115,6 +119,7 @@
   "openrouter": {
     "baseUrl": "https://openrouter.ai/api/v1",
     "api": "openai-completions",
+    "apiKey": "${OPENROUTER_API_KEY}",
     "authHeader": true,
     "models": [
       {

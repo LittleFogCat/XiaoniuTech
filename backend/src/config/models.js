@@ -20,6 +20,23 @@ function resolveModelsConfigPath() {
   return path.join(BACKEND_CONFIG_DIR, 'models.json');
 }
 
+function resolveEnvVars(value) {
+  if (typeof value === 'string') {
+    return value.replace(/\$\{(\w+)\}/g, (_, name) => process.env[name] || '');
+  }
+  if (Array.isArray(value)) {
+    return value.map(resolveEnvVars);
+  }
+  if (value && typeof value === 'object') {
+    const resolved = {};
+    for (const [k, v] of Object.entries(value)) {
+      resolved[k] = resolveEnvVars(v);
+    }
+    return resolved;
+  }
+  return value;
+}
+
 export function loadModelsConfig() {
   if (modelsConfig) {
     return modelsConfig;
@@ -75,7 +92,7 @@ export function findProviderAndModel(modelId) {
     if (model) {
       return {
         provider: provider,
-        config: providerConfig,
+        config: resolveEnvVars(providerConfig),
         model: model,
       };
     }

@@ -1,23 +1,6 @@
 import { findProviderAndModel } from '../config/models.js';
 import { shouldPrintProviderLog } from '../config/backend.js';
 
-const PROVIDER_API_KEY_ENV_VARS = {
-  longcat: 'LONGCAT_API_KEY',
-  zai: 'ZAI_API_KEY',
-  openrouter: 'OPENROUTER_API_KEY',
-  deepseek: 'DEEPSEEK_API_KEY',
-};
-
-function resolveApiKey(provider, providerConfig) {
-  const envVarName = PROVIDER_API_KEY_ENV_VARS[provider];
-  const apiKey = envVarName ? process.env[envVarName] : undefined;
-
-  return {
-    apiKey: apiKey || providerConfig.apiKey,
-    envVarName,
-  };
-}
-
 function buildUrl(baseUrl) {
   baseUrl = baseUrl.replace(/\/$/, '');
   if (baseUrl.endsWith('/openai/v1')) {
@@ -65,13 +48,10 @@ function buildHeaders(provider, providerConfig) {
   };
 
   const authHeader = providerConfig.authHeader ?? true;
-  const { apiKey, envVarName } = resolveApiKey(provider, providerConfig);
+  const apiKey = providerConfig.apiKey;
 
   if (authHeader && !apiKey) {
-    const configHint = envVarName
-      ? ` Set ${envVarName} in the environment.`
-      : '';
-    throw new Error(`Missing API key for provider ${provider}.${configHint}`);
+    throw new Error(`Missing API key for provider ${provider}. Check the apiKey field in models.json.`);
   }
 
   if (apiKey && authHeader) {
