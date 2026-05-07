@@ -1,3 +1,5 @@
+import { useAppShell } from '../contexts/AppShellContext';
+
 const SIZE_CLASSES = {
   sm: 'h-10 w-10 text-sm',
   md: 'h-12 w-12 text-base',
@@ -11,6 +13,7 @@ function getInitial(name = 'AI') {
 }
 
 export default function IdentityAvatar({ name = 'AI', avatarUrl = '', size = 'md', className = '' }) {
+  const { t } = useAppShell();
   const sizeClass = SIZE_CLASSES[size] || SIZE_CLASSES.md;
 
   if (avatarUrl) {
@@ -18,7 +21,7 @@ export default function IdentityAvatar({ name = 'AI', avatarUrl = '', size = 'md
       <div className={`overflow-hidden rounded-2xl ring-1 ring-white/10 ${sizeClass} ${className}`}>
         <img
           src={avatarUrl}
-          alt={`${name} 头像`}
+          alt={t('chat.assistantAvatarAlt', { name })}
           className="h-full w-full object-cover"
         />
       </div>
@@ -28,7 +31,7 @@ export default function IdentityAvatar({ name = 'AI', avatarUrl = '', size = 'md
   return (
     <div
       className={`flex items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#38bdf8_0%,#6366f1_52%,#22c55e_100%)] font-semibold text-white shadow-[0_14px_30px_rgba(34,197,94,0.18)] ${sizeClass} ${className}`}
-      aria-label={`${name} 默认头像`}
+      aria-label={t('chat.assistantFallbackAvatarAlt', { name })}
     >
       {getInitial(name)}
     </div>

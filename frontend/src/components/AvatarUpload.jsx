@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useAppShell } from '../contexts/AppShellContext';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
@@ -12,28 +13,28 @@ function getExtension(filename) {
   return idx >= 0 ? filename.slice(idx).toLowerCase() : '';
 }
 
-function validateFile(file) {
-  if (!file) return '请选择文件';
+function validateFile(file, t) {
+  if (!file) return t('avatar.chooseFile');
 
   const ext = getExtension(file.name);
   console.log(LOG_PREFIX, 'validating file:', file.name, 'ext:', ext, 'type:', file.type, 'size:', file.size);
 
   if (!ALLOWED_EXTENSIONS.includes(ext)) {
-    return '不支持的文件类型，仅允许 JPEG、PNG、GIF、WebP';
+    return t('avatar.unsupportedType');
   }
 
   if (!ALLOWED_TYPES.includes(file.type)) {
-    return '不支持的图片格式';
+    return t('avatar.unsupportedFormat');
   }
 
   if (file.size > MAX_FILE_SIZE) {
-    return `文件过大（${(file.size / 1024 / 1024).toFixed(1)}MB），上限为 5MB`;
+    return t('avatar.fileTooLarge', { size: (file.size / 1024 / 1024).toFixed(1) });
   }
 
   return null;
 }
 
-function resizeImage(file) {
+function resizeImage(file, t) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
@@ -67,7 +68,7 @@ function resizeImage(file) {
       canvas.toBlob(
         (blob) => {
           if (!blob) {
-            reject(new Error('图片处理失败'));
+            reject(new Error(t('avatar.imageProcessFailed')));
             return;
           }
           const resized = new File([blob], file.name, { type: file.type });
@@ -81,7 +82,7 @@ function resizeImage(file) {
 
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error('图片加载失败'));
+      reject(new Error(t('avatar.imageLoadFailed')));
     };
 
     img.src = url;
@@ -89,6 +90,7 @@ function resizeImage(file) {
 }
 
 export default function AvatarUpload({ currentUrl, username, onUploaded }) {
+  const { t } = useAppShell();
   const [preview, setPreview] = useState(currentUrl || '');
   const [modalOpen, setModalOpen] = useState(false);
   const [modalFile, setModalFile] = useState(null);
@@ -128,7 +130,7 @@ export default function AvatarUpload({ currentUrl, username, onUploaded }) {
     if (!file) return;
 
     console.log(LOG_PREFIX, 'file selected in modal:', file.name);
-    const err = validateFile(file);
+    const err = validateFile(file, t);
     if (err) {
       setError(err);
       setModalFile(null);
@@ -155,7 +157,7 @@ export default function AvatarUpload({ currentUrl, username, onUploaded }) {
     setError(null);
 
     try {
-      const resized = await resizeImage(modalFile);
+      const resized = await resizeImage(modalFile, t);
 
       const formData = new FormData();
       formData.append('file', resized);
@@ -170,7 +172,7 @@ export default function AvatarUpload({ currentUrl, username, onUploaded }) {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || '上传失败');
+        throw new Error(data.error || t('avatar.uploadFailed'));
       }
 
       const data = await res.json();
@@ -188,23 +190,16 @@ export default function AvatarUpload({ currentUrl, username, onUploaded }) {
     }
   }
 
-  function handleRemove() {
-    console.log(LOG_PREFIX, 'removing avatar');
-    setPreview('');
-    onUploaded(null, '');
-    setError(null);
-  }
-
   return (
     <div>
       <div className="flex items-center gap-4">
         {preview ? (
           <img
             src={preview}
-            alt="头像"
-            className="h-20 w-20 cursor-pointer rounded-full border-2 border-slate-600/60 object-cover transition hover:border-sky-400/60"
+            alt={t('settings.avatar')}
+            className="h-20 w-20 cursor-pointer rounded-full border-2 border-[color:var(--surface-border)] object-cover transition hover:border-[color:var(--accent-border)]"
             onClick={openModal}
-            title="点击修改头像"
+            title={t('avatar.changeAvatar')}
           />
         ) : (
           <div
@@ -213,7 +208,7 @@ export default function AvatarUpload({ currentUrl, username, onUploaded }) {
               background: `linear-gradient(135deg, hsl(${avatarHue}, 60%, 45%), hsl(${(avatarHue + 30) % 360}, 60%, 35%))`,
             }}
             onClick={openModal}
-            title="点击上传头像"
+            title={t('avatar.uploadAvatar')}
           >
             {avatarLetter}
           </div>
@@ -223,35 +218,26 @@ export default function AvatarUpload({ currentUrl, username, onUploaded }) {
           <button
             type="button"
             onClick={openModal}
-            className="rounded-lg border border-slate-600/60 bg-slate-800/40 px-3 py-1.5 text-xs text-slate-200 transition hover:border-slate-500/80"
+            className="rounded-lg border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-3 py-1.5 text-xs text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
           >
-            {preview ? '更换头像' : '上传头像'}
+            {preview ? t('avatar.changeAvatar') : t('avatar.uploadAvatar')}
           </button>
-          {preview && (
-            <button
-              type="button"
-              onClick={handleRemove}
-              className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-200 transition hover:border-red-400/50"
-            >
-              移除头像
-            </button>
-          )}
         </div>
       </div>
 
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeModal} />
-          <div className="relative z-10 w-full max-w-sm rounded-2xl border border-slate-700/60 bg-[linear-gradient(180deg,rgba(30,41,59,0.96),rgba(15,23,42,0.98))] p-6 shadow-[0_24px_60px_rgba(15,23,42,0.3)] backdrop-blur-xl">
-            <h3 className="mb-4 text-lg font-semibold text-white" style={{ fontFamily: "'Space Grotesk', 'Noto Sans SC', sans-serif" }}>
-              修改头像
+          <div className="relative z-10 w-full max-w-sm rounded-2xl border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] p-6 shadow-[var(--surface-shadow)] backdrop-blur-xl">
+            <h3 className="mb-4 text-lg font-semibold text-[color:var(--text-primary)]" style={{ fontFamily: "'Space Grotesk', 'Noto Sans SC', sans-serif" }}>
+              {t('avatar.modalTitle')}
             </h3>
 
             <div className="mb-4 flex justify-center">
               {modalPreview ? (
-                <img src={modalPreview} alt="预览" className="h-32 w-32 rounded-full border-2 border-slate-600/60 object-cover" />
+                <img src={modalPreview} alt={t('avatar.previewAlt')} className="h-32 w-32 rounded-full border-2 border-[color:var(--surface-border)] object-cover" />
               ) : preview ? (
-                <img src={preview} alt="当前头像" className="h-32 w-32 rounded-full border-2 border-slate-600/60 object-cover" />
+                <img src={preview} alt={t('avatar.currentAvatarAlt')} className="h-32 w-32 rounded-full border-2 border-[color:var(--surface-border)] object-cover" />
               ) : (
                 <div
                   className="flex h-32 w-32 items-center justify-center rounded-full text-3xl font-semibold text-white"
@@ -267,9 +253,9 @@ export default function AvatarUpload({ currentUrl, username, onUploaded }) {
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="mb-3 w-full rounded-xl border border-slate-600/60 bg-slate-800/40 px-4 py-2.5 text-sm text-slate-200 transition hover:border-slate-500/80"
+              className="mb-3 w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-4 py-2.5 text-sm text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
             >
-              {modalFile ? '重新选择' : '选择图片'}
+              {modalFile ? t('avatar.reselect') : t('avatar.selectImage')}
             </button>
 
             <input
@@ -281,26 +267,26 @@ export default function AvatarUpload({ currentUrl, username, onUploaded }) {
             />
 
             {error && (
-              <p className="mb-3 text-xs text-red-400">{error}</p>
+              <p className="mb-3 text-xs text-[color:var(--danger-text)]">{error}</p>
             )}
 
-            <p className="mb-4 text-xs text-slate-500">支持 JPEG / PNG / GIF / WebP，最大 5MB，长边自动缩放至 1024px</p>
+            <p className="mb-4 text-xs text-[color:var(--text-faint)]">{t('avatar.supportHint')}</p>
 
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={closeModal}
-                className="flex-1 rounded-xl border border-slate-600/60 bg-slate-800/40 py-2.5 text-sm text-slate-300 transition hover:border-slate-500/80"
+                className="flex-1 rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] py-2.5 text-sm text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
               >
-                取消
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
                 onClick={handleConfirm}
                 disabled={!modalFile || uploading}
-                className="flex-1 rounded-xl border border-sky-500/30 bg-sky-500/10 py-2.5 text-sm text-sky-100 transition hover:border-sky-400/50 hover:bg-sky-500/20 disabled:opacity-40"
+                className="flex-1 rounded-xl border border-[color:var(--accent-border)] bg-[var(--accent-soft)] py-2.5 text-sm text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-40"
               >
-                {uploading ? '上传中...' : '确认'}
+                {uploading ? t('avatar.uploading') : t('common.confirm')}
               </button>
             </div>
           </div>

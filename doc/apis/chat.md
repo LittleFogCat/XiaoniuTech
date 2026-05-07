@@ -29,15 +29,16 @@
 ### GET /api/identities
 
 获取当前可用的智能体列表。该接口只返回对外展示字段，不返回人格定义原文。
-智能体运行时数据来自 MongoDB；部署时会将 `conf/backend/identities/*.md` 作为初始化种子导入数据库，后续以数据库记录为准。
+智能体运行时数据来自 MongoDB；部署时会将 `conf/backend/identities/identities.json` 中的元数据与 `conf/backend/identities/persona/*.md` 中的人格正文作为初始化种子导入数据库，后续以数据库记录为准。
 
 **响应示例**
 ```json
 {
   "identities": [
     {
-      "id": "xiaonaimo",
+      "id": "小奶茉",
       "name": "小奶茉",
+      "role": "猫娘助手",
       "description": "温柔、耐心、带一点灵气的聊天搭子。",
       "avatarUrl": ""
     }
@@ -48,8 +49,9 @@
 **响应字段说明**
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| id | string | 智能体唯一 ID；默认初始化时由种子 md 文件名推导，运行时以数据库记录为准 |
+| id | string | 智能体唯一 ID；默认初始化时由 `identities.json` 中的 `id` 决定，运行时以数据库记录为准 |
 | name | string | 智能体名称，所有智能体之间不可重名 |
+| role | string | 智能体角色标签，可为空 |
 | description | string | 智能体简介 |
 | avatarUrl | string | 头像 URL，可为空 |
 

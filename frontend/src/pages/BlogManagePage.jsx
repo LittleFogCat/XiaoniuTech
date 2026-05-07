@@ -2,13 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import BlogHeader from '../components/BlogHeader';
 import { fetchManagePosts, trashPost, restorePost, deletePostPermanently, isLoggedIn, updatePost } from '../services/blogApi';
-
-function formatDate(dateStr) {
-  if (!dateStr) return '';
-  return new Date(dateStr).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
+import { useAppShell } from '../contexts/AppShellContext';
 
 export default function BlogManagePage() {
+  const { t, formatDate, formatNumber } = useAppShell();
   const [posts, setPosts] = useState([]);
   const [trashed, setTrashed] = useState([]);
   const [selectedByTab, setSelectedByTab] = useState({ posts: [], trashed: [] });
@@ -19,13 +16,13 @@ export default function BlogManagePage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    document.title = '文章管理 - XN Blog';
+    document.title = t('blog.managePageTitle');
     if (!isLoggedIn()) {
       navigate('/chat', { replace: true });
       return;
     }
     loadData();
-  }, [navigate]);
+  }, [navigate, t]);
 
   async function loadData() {
     setLoading(true);
@@ -105,7 +102,7 @@ export default function BlogManagePage() {
       const failed = results.filter((result) => result.status === 'rejected');
 
       if (failed.length > 0) {
-        throw new Error(failed[0].reason?.message || '批量操作失败');
+        throw new Error(failed[0].reason?.message || t('blog.bulkActionFailed'));
       }
 
       clearCurrentSelection();
@@ -115,7 +112,7 @@ export default function BlogManagePage() {
         window.alert(successMessage.replace('{count}', String(slugs.length)));
       }
     } catch (err) {
-      window.alert(err.message || '批量操作失败');
+      window.alert(err.message || t('blog.bulkActionFailed'));
     } finally {
       setActionLoading(null);
     }
@@ -124,9 +121,9 @@ export default function BlogManagePage() {
   async function handleTrash(slug) {
     await runBulkAction({
       loadingKey: `trash:${slug}`,
-      confirmMessage: '确定要删除这篇文章吗？它将移入垃圾桶。',
-      successMessage: '已将 {count} 篇文章移入垃圾桶。',
-      emptyMessage: '未选择要删除的文章。',
+      confirmMessage: t('blog.trashConfirmOne'),
+      successMessage: t('blog.movedToTrash', { count: '{count}' }),
+      emptyMessage: t('blog.emptyDelete'),
       slugs: [slug],
       mutate: trashPost,
     });
@@ -135,8 +132,8 @@ export default function BlogManagePage() {
   async function handleRestore(slug) {
     await runBulkAction({
       loadingKey: `restore:${slug}`,
-      successMessage: '已恢复 {count} 篇文章。',
-      emptyMessage: '未选择要恢复的文章。',
+      successMessage: t('blog.restoredPosts', { count: '{count}' }),
+      emptyMessage: t('blog.emptyRestore'),
       slugs: [slug],
       mutate: restorePost,
     });
@@ -145,9 +142,9 @@ export default function BlogManagePage() {
   async function handlePermanentDelete(slug) {
     await runBulkAction({
       loadingKey: `permanent-delete:${slug}`,
-      confirmMessage: '此操作不可撤销，确定要永久删除这篇文章及其所有评论吗？',
-      successMessage: '已永久删除 {count} 篇文章。',
-      emptyMessage: '未选择要永久删除的文章。',
+      confirmMessage: t('blog.permanentDeleteConfirmOne'),
+      successMessage: t('blog.permanentlyDeleted', { count: '{count}' }),
+      emptyMessage: t('blog.emptyPermanentDelete'),
       slugs: [slug],
       mutate: deletePostPermanently,
     });
@@ -165,8 +162,8 @@ export default function BlogManagePage() {
   async function handleBulkPublish() {
     await runBulkAction({
       loadingKey: 'bulk-publish',
-      successMessage: '已发布 {count} 篇文章。',
-      emptyMessage: '请选择至少一篇草稿文章。',
+      successMessage: t('blog.publishedPosts', { count: '{count}' }),
+      emptyMessage: t('blog.emptyDraftPublish'),
       slugs: selectedDraftSlugs,
       mutate: (slug) => updatePost(slug, { published: true }),
     });
@@ -175,19 +172,39 @@ export default function BlogManagePage() {
   async function handleBulkUnpublish() {
     await runBulkAction({
       loadingKey: 'bulk-unpublish',
-      successMessage: '已将 {count} 篇文章撤回为草稿。',
-      emptyMessage: '请选择至少一篇已发布文章。',
+      successMessage: t('blog.unpublishedPosts', { count: '{count}' }),
+      emptyMessage: t('blog.emptyPublishedUnpublish'),
       slugs: selectedPublishedSlugs,
       mutate: (slug) => updatePost(slug, { published: false }),
+    });
+  }
+
+  async function handlePublish(slug) {
+    await runBulkAction({
+      loadingKey: `publish:${slug}`,
+      successMessage: t('blog.publishedPosts', { count: '{count}' }),
+      emptyMessage: t('blog.emptyDraftPublish'),
+      slugs: [slug],
+      mutate: (currentSlug) => updatePost(currentSlug, { published: true }),
+    });
+  }
+
+  async function handleUnpublish(slug) {
+    await runBulkAction({
+      loadingKey: `unpublish:${slug}`,
+      successMessage: t('blog.unpublishedPosts', { count: '{count}' }),
+      emptyMessage: t('blog.emptyPublishedUnpublish'),
+      slugs: [slug],
+      mutate: (currentSlug) => updatePost(currentSlug, { published: false }),
     });
   }
 
   async function handleBulkTrash() {
     await runBulkAction({
       loadingKey: 'bulk-trash',
-      confirmMessage: `确定要将选中的 ${selectedSlugs.length} 篇文章移入垃圾桶吗？`,
-      successMessage: '已将 {count} 篇文章移入垃圾桶。',
-      emptyMessage: '请选择至少一篇文章。',
+      confirmMessage: t('blog.trashConfirmMany', { count: selectedSlugs.length }),
+      successMessage: t('blog.movedToTrash', { count: '{count}' }),
+      emptyMessage: t('blog.emptyDelete'),
       slugs: selectedSlugs,
       mutate: trashPost,
     });
@@ -196,8 +213,8 @@ export default function BlogManagePage() {
   async function handleBulkRestore() {
     await runBulkAction({
       loadingKey: 'bulk-restore',
-      successMessage: '已恢复 {count} 篇文章。',
-      emptyMessage: '请选择至少一篇垃圾桶中的文章。',
+      successMessage: t('blog.restoredPosts', { count: '{count}' }),
+      emptyMessage: t('blog.emptyRestore'),
       slugs: selectedSlugs,
       mutate: restorePost,
     });
@@ -206,47 +223,47 @@ export default function BlogManagePage() {
   async function handleBulkPermanentDelete() {
     await runBulkAction({
       loadingKey: 'bulk-permanent-delete',
-      confirmMessage: `此操作不可撤销，确定要永久删除选中的 ${selectedSlugs.length} 篇文章及其评论吗？`,
-      successMessage: '已永久删除 {count} 篇文章。',
-      emptyMessage: '请选择至少一篇垃圾桶中的文章。',
+      confirmMessage: t('blog.permanentDeleteConfirmMany', { count: selectedSlugs.length }),
+      successMessage: t('blog.permanentlyDeleted', { count: '{count}' }),
+      emptyMessage: t('blog.emptyPermanentDelete'),
       slugs: selectedSlugs,
       mutate: deletePostPermanently,
     });
   }
 
   return (
-    <div className="min-h-screen" style={{ background: '#050816' }}>
-      <BlogHeader hideBackButton />
+    <div className="min-h-screen bg-[var(--page-bg)] text-[color:var(--text-primary)]">
+      <BlogHeader hideBackButton contentWidth="max-w-4xl" showSearch={false} />
 
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
         <h1
-          className="mb-6 text-2xl font-bold text-white"
+          className="mb-6 text-2xl font-bold text-[color:var(--text-primary)]"
           style={{ fontFamily: "'Space Grotesk', 'Noto Sans SC', sans-serif" }}
         >
-          文章管理
+          {t('blog.managePageTitle').replace(' - XN Blog', '')}
         </h1>
 
-        <div className="mb-6 flex items-end justify-between gap-4 border-b border-slate-700/60">
+        <div className="mb-6 flex items-end justify-between gap-4 border-b border-[color:var(--surface-border)]">
           <div className="flex gap-3">
             <button
               onClick={() => setTab('posts')}
               className={`pb-2.5 text-sm font-medium transition ${
                 tab === 'posts'
-                  ? 'border-b-2 border-sky-400 text-sky-200'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'border-b-2 border-[color:var(--accent-border)] text-[color:var(--text-primary)]'
+                  : 'text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)]'
               }`}
             >
-              我的文章 ({posts.length})
+              {t('blog.myPosts', { count: formatNumber(posts.length) })}
             </button>
             <button
               onClick={() => setTab('trashed')}
               className={`pb-2.5 text-sm font-medium transition ${
                 tab === 'trashed'
-                  ? 'border-b-2 border-sky-400 text-sky-200'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'border-b-2 border-[color:var(--accent-border)] text-[color:var(--text-primary)]'
+                  : 'text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)]'
               }`}
             >
-              垃圾桶 ({trashCount})
+              {t('blog.trashBin', { count: formatNumber(trashCount) })}
             </button>
           </div>
 
@@ -256,36 +273,36 @@ export default function BlogManagePage() {
               onClick={() => setCurrentBatchMode(!batchMode)}
               className={`mb-2 rounded-lg border px-3 py-1.5 text-xs transition sm:text-sm ${
                 batchMode
-                  ? 'border-slate-500/70 bg-slate-700/45 text-slate-100 hover:border-slate-400/80'
-                  : 'border-sky-500/30 bg-sky-500/10 text-sky-100 hover:border-sky-400/50 hover:bg-sky-500/20'
+                  ? 'border-[color:var(--surface-border)] bg-[var(--surface-hover)] text-[color:var(--text-primary)]'
+                  : 'border-[color:var(--accent-border)] bg-[var(--accent-soft)] text-[color:var(--text-primary)] hover:bg-[var(--surface-hover)]'
               }`}
             >
-              {batchMode ? '完成批量管理' : '批量管理'}
+              {batchMode ? t('blog.batchModeOff') : t('blog.batchModeOn')}
             </button>
           )}
         </div>
 
         {!loading && currentList.length > 0 && batchMode && (
-          <div className="mb-5 rounded-2xl border border-slate-700/60 bg-[rgba(15,23,42,0.45)] p-4 backdrop-blur-sm">
+          <div className="mb-5 rounded-2xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] p-4 backdrop-blur-sm">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-wrap items-center gap-3 text-sm text-slate-300">
-                <label className="inline-flex items-center gap-2 text-sm text-slate-200">
+              <div className="flex flex-wrap items-center gap-3 text-sm text-[color:var(--text-secondary)]">
+                <label className="inline-flex items-center gap-2 text-sm text-[color:var(--text-primary)]">
                   <input
                     type="checkbox"
                     checked={allCurrentSelected}
                     onChange={toggleSelectAllCurrent}
                     className="h-4 w-4 rounded border-slate-600 bg-slate-900/70 text-sky-400 focus:ring-sky-500/40"
                   />
-                  <span>全选当前列表</span>
+                  <span>{t('blog.selectAllCurrent')}</span>
                 </label>
-                <span className="text-slate-400">已选 {selectedSlugs.length} 篇</span>
+                <span className="text-[color:var(--text-muted)]">{t('blog.selectedCount', { count: formatNumber(selectedSlugs.length) })}</span>
                 {selectedSlugs.length > 0 && (
                   <button
                     type="button"
                     onClick={clearCurrentSelection}
-                    className="text-sm text-slate-400 transition hover:text-slate-200"
+                    className="text-sm text-[color:var(--text-muted)] transition hover:text-[color:var(--text-primary)]"
                   >
-                    清空选择
+                    {t('blog.clearSelection')}
                   </button>
                 )}
               </div>
@@ -297,25 +314,25 @@ export default function BlogManagePage() {
                       type="button"
                       disabled={Boolean(actionLoading) || selectedDraftSlugs.length === 0}
                       onClick={handleBulkPublish}
-                      className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-1.5 text-xs text-sky-100 transition hover:border-sky-400/50 hover:bg-sky-500/20 disabled:opacity-40 sm:text-sm"
+                      className="rounded-lg border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-3 py-1.5 text-xs text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-40 sm:text-sm"
                     >
-                      批量发布
+                      {t('blog.bulkPublish')}
                     </button>
                     <button
                       type="button"
                       disabled={Boolean(actionLoading) || selectedPublishedSlugs.length === 0}
                       onClick={handleBulkUnpublish}
-                      className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-100 transition hover:border-amber-400/50 hover:bg-amber-500/20 disabled:opacity-40 sm:text-sm"
+                      className="rounded-lg border border-[color:var(--warning-border)] bg-[var(--warning-soft)] px-3 py-1.5 text-xs text-[color:var(--warning-text)] transition hover:opacity-85 disabled:opacity-40 sm:text-sm"
                     >
-                      批量撤回
+                      {t('blog.bulkUnpublish')}
                     </button>
                     <button
                       type="button"
                       disabled={Boolean(actionLoading) || selectedSlugs.length === 0}
                       onClick={handleBulkTrash}
-                      className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-200 transition hover:border-red-400/50 hover:bg-red-500/20 disabled:opacity-40 sm:text-sm"
+                      className="rounded-lg border border-[color:var(--danger-border)] bg-[var(--danger-soft)] px-3 py-1.5 text-xs text-[color:var(--danger-text)] transition hover:opacity-85 disabled:opacity-40 sm:text-sm"
                     >
-                      批量删除
+                      {t('blog.bulkDelete')}
                     </button>
                   </>
                 ) : (
@@ -324,17 +341,17 @@ export default function BlogManagePage() {
                       type="button"
                       disabled={Boolean(actionLoading) || selectedSlugs.length === 0}
                       onClick={handleBulkRestore}
-                      className="rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-1.5 text-xs text-green-200 transition hover:border-green-400/50 hover:bg-green-500/20 disabled:opacity-40 sm:text-sm"
+                      className="rounded-lg border border-[color:var(--success-border)] bg-[var(--success-soft)] px-3 py-1.5 text-xs text-[color:var(--success-text)] transition hover:opacity-85 disabled:opacity-40 sm:text-sm"
                     >
-                      批量恢复
+                      {t('blog.bulkRestore')}
                     </button>
                     <button
                       type="button"
                       disabled={Boolean(actionLoading) || selectedSlugs.length === 0}
                       onClick={handleBulkPermanentDelete}
-                      className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-200 transition hover:border-red-400/50 hover:bg-red-500/20 disabled:opacity-40 sm:text-sm"
+                      className="rounded-lg border border-[color:var(--danger-border)] bg-[var(--danger-soft)] px-3 py-1.5 text-xs text-[color:var(--danger-text)] transition hover:opacity-85 disabled:opacity-40 sm:text-sm"
                     >
-                      批量永久删除
+                      {t('blog.bulkPermanentDelete')}
                     </button>
                   </>
                 )}
@@ -344,17 +361,17 @@ export default function BlogManagePage() {
         )}
 
         {loading ? (
-          <div className="py-12 text-center text-slate-500">加载中...</div>
+          <div className="py-12 text-center text-[color:var(--text-faint)]">{t('common.loading')}</div>
         ) : currentList.length === 0 ? (
-          <div className="py-12 text-center text-slate-500">
-            {tab === 'posts' ? '暂无文章' : '垃圾桶为空'}
+          <div className="py-12 text-center text-[color:var(--text-faint)]">
+            {tab === 'posts' ? t('blog.noPosts') : t('blog.trashEmpty')}
           </div>
         ) : (
           <div className="flex flex-col gap-3">
             {currentList.map((post) => (
               <div
                 key={post._id}
-                className="flex items-center gap-4 rounded-xl border border-slate-700/50 bg-[rgba(15,23,42,0.5)] p-4 backdrop-blur-sm"
+                className="flex items-center gap-4 rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] p-4 backdrop-blur-sm"
               >
                 {batchMode && (
                   <label className="inline-flex shrink-0 items-center justify-center self-start pt-1">
@@ -371,22 +388,22 @@ export default function BlogManagePage() {
                   <div className="flex items-center gap-2">
                     <Link
                       to={`/blog/post/${post.slug}`}
-                      className="truncate text-sm font-medium text-white transition hover:text-sky-200 sm:text-base"
+                      className="truncate text-sm font-medium text-[color:var(--text-primary)] transition hover:text-[color:var(--accent-solid)] sm:text-base"
                     >
                       {post.title}
                     </Link>
                     {!post.published && !post.trashed && (
-                      <span className="shrink-0 rounded bg-green-600/80 px-1.5 py-0.5 text-[11px] font-medium text-white">草稿</span>
+                      <span className="shrink-0 rounded bg-[var(--success-text)] px-1.5 py-0.5 text-[11px] font-medium text-white">{t('common.draft')}</span>
                     )}
                     {post.trashed && (
-                      <span className="shrink-0 rounded bg-red-600/80 px-1.5 py-0.5 text-[11px] font-medium text-white">已删除</span>
+                      <span className="shrink-0 rounded bg-[var(--danger-text)] px-1.5 py-0.5 text-[11px] font-medium text-white">{t('common.deleted')}</span>
                     )}
                   </div>
-                  <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                    <span className="text-[11px] text-slate-600 break-all">{post.slug}</span>
+                  <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[color:var(--text-faint)]">
+                    <span className="break-all text-[11px] text-[color:var(--text-faint)]">{post.slug}</span>
                     {post.publishedAt && <span>{formatDate(post.publishedAt)}</span>}
-                    {post.trashedAt && <span>删除于 {formatDate(post.trashedAt)}</span>}
-                    <span>{post.viewCount} 阅读</span>
+                    {post.trashedAt && <span>{t('blog.deletedAt', { date: formatDate(post.trashedAt, { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) })}</span>}
+                    <span>{t('blog.readCount', { count: formatNumber(post.viewCount) })}</span>
                   </div>
                 </div>
 
@@ -396,16 +413,33 @@ export default function BlogManagePage() {
                       <button
                         onClick={() => navigate(`/blog/edit/${post.slug}`)}
                         disabled={Boolean(actionLoading)}
-                        className="rounded-lg border border-slate-600/60 bg-slate-800/40 px-2.5 py-1.5 text-[11px] text-slate-300 transition hover:border-slate-500/80 sm:text-xs"
+                        className="rounded-lg border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] px-2.5 py-1.5 text-[11px] text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)] sm:text-xs"
                       >
-                        编辑
+                        {t('common.edit')}
                       </button>
+                      {post.published ? (
+                        <button
+                          onClick={() => handleUnpublish(post.slug)}
+                          disabled={Boolean(actionLoading)}
+                          className="rounded-lg border border-[color:var(--warning-border)] bg-[var(--warning-soft)] px-2.5 py-1.5 text-[11px] text-[color:var(--warning-text)] transition hover:opacity-85 disabled:opacity-40 sm:text-xs"
+                        >
+                          {t('blog.unpublish')}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handlePublish(post.slug)}
+                          disabled={Boolean(actionLoading)}
+                          className="rounded-lg border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-2.5 py-1.5 text-[11px] text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-40 sm:text-xs"
+                        >
+                          {t('blog.publish')}
+                        </button>
+                      )}
                       <button
                         onClick={() => handleTrash(post.slug)}
                         disabled={Boolean(actionLoading)}
-                        className="rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1.5 text-[11px] text-red-200 transition hover:border-red-400/50 hover:bg-red-500/20 disabled:opacity-40 sm:text-xs"
+                        className="rounded-lg border border-[color:var(--danger-border)] bg-[var(--danger-soft)] px-2.5 py-1.5 text-[11px] text-[color:var(--danger-text)] transition hover:opacity-85 disabled:opacity-40 sm:text-xs"
                       >
-                        删除
+                        {t('common.delete')}
                       </button>
                     </>
                   ) : (
@@ -413,16 +447,16 @@ export default function BlogManagePage() {
                       <button
                         onClick={() => handleRestore(post.slug)}
                         disabled={Boolean(actionLoading)}
-                        className="rounded-lg border border-green-500/30 bg-green-500/10 px-2.5 py-1.5 text-[11px] text-green-200 transition hover:border-green-400/50 hover:bg-green-500/20 disabled:opacity-40 sm:text-xs"
+                        className="rounded-lg border border-[color:var(--success-border)] bg-[var(--success-soft)] px-2.5 py-1.5 text-[11px] text-[color:var(--success-text)] transition hover:opacity-85 disabled:opacity-40 sm:text-xs"
                       >
-                        恢复
+                        {t('common.restore')}
                       </button>
                       <button
                         onClick={() => handlePermanentDelete(post.slug)}
                         disabled={Boolean(actionLoading)}
-                        className="rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1.5 text-[11px] text-red-200 transition hover:border-red-400/50 hover:bg-red-500/20 disabled:opacity-40 sm:text-xs"
+                        className="rounded-lg border border-[color:var(--danger-border)] bg-[var(--danger-soft)] px-2.5 py-1.5 text-[11px] text-[color:var(--danger-text)] transition hover:opacity-85 disabled:opacity-40 sm:text-xs"
                       >
-                        永久删除
+                        {t('common.permanentDelete')}
                       </button>
                     </>
                   )}

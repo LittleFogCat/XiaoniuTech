@@ -6,14 +6,10 @@ import { processMarkdown } from '../utils/markdown';
 import BlogHeader from '../components/BlogHeader';
 import BlogComment from '../components/BlogComment';
 import { fetchPost, incrementViewCount, isLoggedIn, likePost, unlikePost, isPostLiked, markPostLiked, markPostUnliked } from '../services/blogApi';
-
-function formatDate(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
-}
+import { useAppShell } from '../contexts/AppShellContext';
 
 export default function BlogPostPage() {
+  const { t, formatDate, formatNumber } = useAppShell();
   const { slug } = useParams();
   const navigate = useNavigate();
   const [post, setPost] = useState(null);
@@ -70,26 +66,26 @@ export default function BlogPostPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#050816' }}>
-        <p className="text-slate-500">加载中...</p>
+        <p className="text-[color:var(--text-faint)]">{t('common.loading')}</p>
       </div>
     );
   }
 
   if (error || !post) {
     return (
-      <div className="min-h-screen" style={{ background: '#050816' }}>
+      <div className="min-h-screen bg-[var(--page-bg)] text-[color:var(--text-primary)]">
         <BlogHeader hideBackButton contentWidth="max-w-4xl" />
         <div className="mx-auto max-w-4xl px-4 py-16 text-center">
-          <h1 className="text-2xl font-bold text-white">文章不存在</h1>
-          <p className="mt-2 text-slate-400">{error || '该文章未找到或已被删除'}</p>
-          <Link to="/blog" className="mt-4 inline-block text-sky-300 underline">返回博客首页</Link>
+          <h1 className="text-2xl font-bold text-[color:var(--text-primary)]">{t('blog.postNotFound')}</h1>
+          <p className="mt-2 text-[color:var(--text-muted)]">{error || t('blog.postMissing')}</p>
+          <Link to="/blog" className="mt-4 inline-block text-[color:var(--accent-solid)] underline">{t('blog.backToBlog')}</Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen" style={{ background: '#050816' }}>
+    <div className="min-h-screen bg-[var(--page-bg)] text-[color:var(--text-primary)]">
       <BlogHeader hideBackButton contentWidth="max-w-4xl" />
 
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
@@ -97,24 +93,24 @@ export default function BlogPostPage() {
           <header className="mb-6">
             <div className="flex items-start gap-3">
               <h1
-                className="text-2xl font-bold text-white sm:text-3xl"
+                className="text-2xl font-bold text-[color:var(--text-primary)] sm:text-3xl"
                 style={{ fontFamily: "'Space Grotesk', 'Noto Sans SC', sans-serif" }}
               >
                 {post.title}
               </h1>
               {!post.published && (
-                <span className="shrink-0 rounded bg-green-600/80 px-1.5 py-0.5 text-[11px] font-medium text-white">草稿</span>
+                <span className="shrink-0 rounded bg-[var(--success-text)] px-1.5 py-0.5 text-[11px] font-medium text-white">{t('common.draft')}</span>
               )}
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-400">
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-[color:var(--text-muted)]">
               <span>{formatDate(post.publishedAt)}</span>
-              <span>{post.viewCount} 次阅读</span>
-              <span>{post.likes ?? likeCount} 次点赞</span>
+              <span>{t('blog.readCountLong', { count: formatNumber(post.viewCount) })}</span>
+              <span>{t('blog.likeCountLong', { count: formatNumber(post.likes ?? likeCount) })}</span>
               {post.tags && post.tags.length > 0 && post.tags.map((t) => (
                 <Link
                   key={t}
                   to={`/blog?tag=${encodeURIComponent(t)}`}
-                  className="rounded-md border border-slate-600/40 bg-slate-800/40 px-2 py-0.5 text-xs text-slate-400 transition hover:border-sky-500/40 hover:text-sky-200"
+                  className="rounded-md border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] px-2 py-0.5 text-xs text-[color:var(--text-muted)] transition hover:border-[color:var(--accent-border)] hover:text-[color:var(--text-primary)]"
                 >
                   {t}
                 </Link>
@@ -127,22 +123,22 @@ export default function BlogPostPage() {
                   disabled={likeLoading}
                   className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs transition disabled:opacity-40 sm:text-sm ${
                     liked
-                      ? 'border-red-500/30 bg-red-500/10 text-red-200 hover:border-red-400/50'
-                      : 'border-slate-600/60 bg-slate-800/40 text-slate-200 hover:border-slate-500/80'
+                      ? 'border-[color:var(--danger-border)] bg-[var(--danger-soft)] text-[color:var(--danger-text)] hover:opacity-85'
+                      : 'border-[color:var(--surface-border)] bg-[var(--surface-bg)] text-[color:var(--text-secondary)] hover:bg-[var(--surface-hover)]'
                   }`}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                   </svg>
-                  {liked ? '已赞' : '点赞'} ({likeCount})
+                  {liked ? t('blog.liked') : t('blog.like')} ({formatNumber(likeCount)})
                 </button>
               )}
               {isAuthor && (
                 <button
                   onClick={() => navigate(`/blog/edit/${post.slug}`)}
-                  className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-1.5 text-xs text-sky-100 transition hover:border-sky-400/50 hover:bg-sky-500/20"
+                  className="rounded-lg border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-3 py-1.5 text-xs text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
                 >
-                  编辑文章
+                  {t('blog.editPost')}
                 </button>
               )}
             </div>

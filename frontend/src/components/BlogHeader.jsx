@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { isLoggedIn, getUsernameFromToken, logout, fetchUserProfile, importMarkdownArticles } from '../services/blogApi';
+import { useAppShell } from '../contexts/AppShellContext';
+import LanguageThemeControls from './LanguageThemeControls';
 
-export default function BlogHeader({ onSearch, hideBackButton = false, contentWidth = 'max-w-6xl' }) {
+export default function BlogHeader({ onSearch, hideBackButton = false, contentWidth = 'max-w-6xl', showSearch = true }) {
+  const { t } = useAppShell();
   const [query, setQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [composeMenuOpen, setComposeMenuOpen] = useState(false);
@@ -31,7 +34,7 @@ export default function BlogHeader({ onSearch, hideBackButton = false, contentWi
 
   const username = getUsernameFromToken();
   const avatarLetter = (profile?.nickname || username || '?').charAt(0).toUpperCase();
-  const displayName = profile?.nickname || username || '用户';
+  const displayName = profile?.nickname || username || t('common.nickname');
   const displayEmail = profile?.email || username || '';
   const avatarUrl = profile?.avatarUrl || '';
   const avatarHue = username
@@ -102,13 +105,13 @@ export default function BlogHeader({ onSearch, hideBackButton = false, contentWi
       const failedResults = (result.results || []).filter((item) => !item.success);
 
       if (successResults.length === 0) {
-        throw new Error(failedResults[0]?.error || '未能导入任何文章');
+        throw new Error(failedResults[0]?.error || t('blog.importNothing'));
       }
 
       const summary = [
-        `成功导入 ${successResults.length} 篇文章草稿。`,
-        failedResults.length > 0 ? `失败 ${failedResults.length} 篇。` : '',
-        failedResults.length > 0 && failedResults[0]?.error ? `首个错误：${failedResults[0].error}` : '',
+        t('blog.importSummarySuccess', { count: successResults.length }),
+        failedResults.length > 0 ? t('blog.importSummaryFailed', { count: failedResults.length }) : '',
+        failedResults.length > 0 && failedResults[0]?.error ? t('blog.importFirstError', { message: failedResults[0].error }) : '',
       ].filter(Boolean).join(' ');
 
       window.alert(summary);
@@ -120,7 +123,7 @@ export default function BlogHeader({ onSearch, hideBackButton = false, contentWi
         navigate('/blog/manage');
       }
     } catch (error) {
-      window.alert(error.message || '导入失败');
+      window.alert(error.message || t('blog.importTitle'));
     } finally {
       setIsImporting(false);
     }
@@ -128,13 +131,13 @@ export default function BlogHeader({ onSearch, hideBackButton = false, contentWi
 
   return (
     <>
-    <header className="sticky top-0 z-30 border-b border-slate-700/60 bg-[linear-gradient(180deg,rgba(8,10,22,0.94),rgba(5,8,22,0.92))] backdrop-blur-lg">
+    <header className="sticky top-0 z-30 border-b border-[color:var(--surface-border)] bg-[var(--header-bg)] backdrop-blur-lg">
       <div className={`relative mx-auto flex ${contentWidth} items-center gap-3 px-4 py-3 sm:gap-4 sm:px-6 sm:py-4`}>
         {!hideBackButton && (
           <Link
             to="/"
-            className="absolute left-[-3rem] top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-xl border border-slate-600/70 bg-slate-800/35 text-slate-100 transition hover:border-slate-500/80 hover:bg-slate-700/55 lg:inline-flex h-10 w-10"
-            title="返回主页"
+            className="absolute left-[-3rem] top-1/2 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)] lg:inline-flex"
+            title={t('blog.backHomeTitle')}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
@@ -145,63 +148,69 @@ export default function BlogHeader({ onSearch, hideBackButton = false, contentWi
 
         <Link
           to="/blog"
-          className="shrink-0 text-lg font-bold text-white transition hover:text-sky-300 sm:text-xl"
+          className="shrink-0 text-lg font-bold text-[color:var(--text-primary)] transition hover:text-[color:var(--accent-solid)] sm:text-xl"
           style={{ fontFamily: "'Space Grotesk', 'Noto Sans SC', sans-serif" }}
         >
-          XN Blog
+          {t('common.blogName')}
         </Link>
 
-        <form onSubmit={handleSubmit} className="flex min-w-0 flex-1 justify-center">
-          <input
-            type="text"
-            value={query}
-            onChange={handleChange}
-            placeholder="搜索文章..."
-            className="w-full max-w-sm rounded-xl border border-slate-600/60 bg-slate-800/50 px-3.5 py-2 text-sm text-white placeholder-slate-400 outline-none transition focus:border-sky-500/50 focus:bg-slate-800/80 sm:text-base"
-          />
-        </form>
+        {showSearch ? (
+          <form onSubmit={handleSubmit} className="flex min-w-0 flex-1 justify-center">
+            <input
+              type="text"
+              value={query}
+              onChange={handleChange}
+              placeholder={t('blog.searchPlaceholder')}
+              className="w-full max-w-sm rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3.5 py-2 text-sm text-[color:var(--text-primary)] placeholder:text-[color:var(--text-faint)] outline-none transition focus:border-[color:var(--accent-border)] focus:bg-[var(--input-bg-focus)] sm:text-base"
+            />
+          </form>
+        ) : (
+          <div className="min-w-0 flex-1" aria-hidden="true" />
+        )}
 
         <div className="flex items-center gap-2 sm:gap-3">
+          <LanguageThemeControls compact />
+
           {loggedIn && (
             <>
               <button
                 onClick={() => navigate('/blog/manage')}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-600/60 bg-slate-800/40 px-3 py-2 text-xs text-slate-200 transition hover:border-slate-500/80 hover:bg-slate-700/50 sm:px-4 sm:text-sm"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-3 py-2 text-xs text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)] sm:px-4 sm:text-sm"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="3" />
                   <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
                 </svg>
-                <span>管理文章</span>
+                <span>{t('blog.managePosts')}</span>
               </button>
               <div className="relative" onMouseEnter={openComposeMenu} onMouseLeave={closeComposeMenu}>
                 <button
                   onClick={() => navigate('/blog/new')}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-100 transition hover:border-sky-400/50 hover:bg-sky-500/20 sm:px-4 sm:text-sm"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-3 py-2 text-xs text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)] sm:px-4 sm:text-sm"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
-                  <span>{isImporting ? '导入中...' : '创作'}</span>
+                  <span>{isImporting ? t('blog.importing') : t('blog.createMenu')}</span>
                 </button>
 
                 {composeMenuOpen && (
-                  <div className="absolute right-0 top-[calc(100%+0.55rem)] z-50 min-w-40 overflow-hidden rounded-xl border border-slate-700/70 bg-[linear-gradient(180deg,rgba(30,41,59,0.98),rgba(15,23,42,0.99))] shadow-[0_18px_40px_rgba(15,23,42,0.28)] backdrop-blur-xl">
+                  <div className="absolute right-0 top-[calc(100%+0.55rem)] z-50 min-w-40 overflow-hidden rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] shadow-[var(--surface-shadow)] backdrop-blur-xl">
                     <button
                       onClick={() => {
                         setComposeMenuOpen(false);
                         navigate('/blog/new');
                       }}
-                      className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-slate-200 transition hover:bg-slate-700/50"
+                      className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
                     >
-                      写博客
+                      {t('blog.createPost')}
                     </button>
                     <button
                       onClick={openImportDialog}
-                      className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-slate-200 transition hover:bg-slate-700/50"
+                      className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
                     >
-                      导入文章
+                      {t('blog.importPosts')}
                     </button>
                   </div>
                 )}
@@ -213,7 +222,7 @@ export default function BlogHeader({ onSearch, hideBackButton = false, contentWi
             <div className="relative shrink-0" onMouseEnter={openMenu} onMouseLeave={closeMenu}>
               <button
                 onClick={() => navigate(`/blog/${encodeURIComponent(displayName)}`)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-semibold text-white transition hover:ring-2 hover:ring-sky-400/40"
+                className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-semibold text-white transition hover:ring-2 hover:ring-[color:var(--accent-border)]"
                 style={avatarUrl ? {} : {
                   background: `linear-gradient(135deg, hsl(${avatarHue}, 60%, 45%), hsl(${(avatarHue + 30) % 360}, 60%, 35%))`,
                 }}
@@ -227,7 +236,7 @@ export default function BlogHeader({ onSearch, hideBackButton = false, contentWi
               </button>
 
               {menuOpen && (
-                <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-56 overflow-hidden rounded-xl border border-slate-700/70 bg-[linear-gradient(180deg,rgba(30,41,59,0.98),rgba(15,23,42,0.99))] shadow-[0_18px_40px_rgba(15,23,42,0.28)] backdrop-blur-xl">
+                <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-56 overflow-hidden rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] shadow-[var(--surface-shadow)] backdrop-blur-xl">
                   <div className="flex items-center gap-3 px-4 py-3.5">
                     <div
                       className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-semibold text-white"
@@ -242,34 +251,34 @@ export default function BlogHeader({ onSearch, hideBackButton = false, contentWi
                       )}
                     </div>
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-medium text-white">{displayName}</div>
-                      <div className="truncate text-xs text-slate-400">{displayEmail}</div>
+                      <div className="truncate text-sm font-medium text-[color:var(--text-primary)]">{displayName}</div>
+                      <div className="truncate text-xs text-[color:var(--text-muted)]">{displayEmail}</div>
                     </div>
                   </div>
 
-                  <div className="border-t border-slate-700/60" />
+                  <div className="border-t border-[color:var(--surface-border)]" />
 
                   <div className="py-1">
                     <button
                       onClick={() => { setMenuOpen(false); navigate('/settings'); }}
-                      className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-slate-200 transition hover:bg-slate-700/50"
+                      className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="3" />
                         <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
                       </svg>
-                      设置
+                      {t('common.settings')}
                     </button>
                     <button
                       onClick={handleLogout}
-                      className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-slate-200 transition hover:bg-slate-700/50"
+                      className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                         <polyline points="16 17 21 12 16 7" />
                         <line x1="21" y1="12" x2="9" y2="12" />
                       </svg>
-                      登出
+                      {t('common.logout')}
                     </button>
                   </div>
                 </div>
@@ -278,14 +287,14 @@ export default function BlogHeader({ onSearch, hideBackButton = false, contentWi
           ) : (
             <Link
               to={`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-600/60 bg-slate-800/40 px-3 py-2 text-xs text-slate-200 transition hover:border-slate-500/80 hover:bg-slate-700/50 sm:px-4 sm:text-sm"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-3 py-2 text-xs text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)] sm:px-4 sm:text-sm"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
                 <polyline points="10 17 15 12 10 7" />
                 <line x1="15" y1="12" x2="3" y2="12" />
               </svg>
-              <span>登录/注册</span>
+              <span>{t('common.loginOrRegister')}</span>
             </Link>
           )}
         </div>
@@ -315,12 +324,12 @@ export default function BlogHeader({ onSearch, hideBackButton = false, contentWi
     {importDialogOpen && (
       <div className="fixed inset-0 z-[70] flex items-end justify-center overflow-y-auto px-4 py-4 sm:items-center sm:py-8">
         <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={closeImportDialog} />
-        <div className="relative z-10 w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border border-slate-700/70 bg-[linear-gradient(180deg,rgba(30,41,59,0.98),rgba(15,23,42,0.99))] p-5 shadow-[0_24px_60px_rgba(15,23,42,0.36)] sm:p-6">
-          <h3 className="text-lg font-semibold text-white" style={{ fontFamily: "'Space Grotesk', 'Noto Sans SC', sans-serif" }}>
-            导入文章
+        <div className="relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] p-5 shadow-[var(--surface-shadow)] sm:p-6">
+          <h3 className="text-lg font-semibold text-[color:var(--text-primary)]" style={{ fontFamily: "'Space Grotesk', 'Noto Sans SC', sans-serif" }}>
+            {t('blog.importTitle')}
           </h3>
-          <p className="mt-2 text-sm leading-relaxed text-slate-400">
-            仅支持导入 .md 文件。你可以一次选择多个 Markdown 文件，或直接选择一个文件夹批量导入。
+          <p className="mt-2 text-sm leading-relaxed text-[color:var(--text-muted)]">
+            {t('blog.importHint')}
           </p>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -328,17 +337,17 @@ export default function BlogHeader({ onSearch, hideBackButton = false, contentWi
               type="button"
               disabled={isImporting}
               onClick={() => fileInputRef.current?.click()}
-              className="rounded-xl border border-slate-600/60 bg-slate-800/45 px-4 py-3 text-sm text-slate-100 transition hover:border-slate-500/80 disabled:opacity-40"
+              className="rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-4 py-3 text-sm text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-40"
             >
-              选择文件
+              {t('blog.selectFiles')}
             </button>
             <button
               type="button"
               disabled={isImporting}
               onClick={() => folderInputRef.current?.click()}
-              className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-100 transition hover:border-sky-400/50 hover:bg-sky-500/20 disabled:opacity-40"
+              className="rounded-xl border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-40"
             >
-              选择文件夹
+              {t('blog.selectFolder')}
             </button>
           </div>
 
@@ -346,9 +355,9 @@ export default function BlogHeader({ onSearch, hideBackButton = false, contentWi
             type="button"
             disabled={isImporting}
             onClick={closeImportDialog}
-            className="mt-4 w-full rounded-xl border border-slate-600/60 bg-slate-800/35 px-4 py-2.5 text-sm text-slate-300 transition hover:border-slate-500/80 disabled:opacity-40"
+            className="mt-4 w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-4 py-2.5 text-sm text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-40"
           >
-            {isImporting ? '导入中...' : '取消'}
+            {isImporting ? t('blog.importing') : t('common.cancel')}
           </button>
         </div>
       </div>

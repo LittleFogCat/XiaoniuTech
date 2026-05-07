@@ -1,11 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchComments, addComment, isLoggedIn } from '../services/blogApi';
 import { Link } from 'react-router-dom';
-
-function formatDate(dateStr) {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
+import { useAppShell } from '../contexts/AppShellContext';
 
 function CommentAvatar({ authorProfile }) {
   const nickname = authorProfile?.nickname || '?';
@@ -30,6 +26,7 @@ function CommentAvatar({ authorProfile }) {
 }
 
 export default function BlogComment({ slug }) {
+  const { t, formatDate, formatNumber } = useAppShell();
   const [comments, setComments] = useState([]);
   const [total, setTotal] = useState(0);
   const [content, setContent] = useState('');
@@ -63,9 +60,9 @@ export default function BlogComment({ slug }) {
   const totalPages = Math.ceil(total / 50);
 
   return (
-    <div className="mt-8 border-t border-slate-700/60 pt-6">
-      <h3 className="mb-4 text-base font-semibold text-white sm:text-lg" style={{ fontFamily: "'Space Grotesk', 'Noto Sans SC', sans-serif" }}>
-        评论 ({total})
+    <div className="mt-8 border-t border-[color:var(--surface-border)] pt-6">
+      <h3 className="mb-4 text-base font-semibold text-[color:var(--text-primary)] sm:text-lg" style={{ fontFamily: "'Space Grotesk', 'Noto Sans SC', sans-serif" }}>
+        {t('blog.commentsTitle', { count: formatNumber(total) })}
       </h3>
 
       {loggedIn ? (
@@ -73,31 +70,30 @@ export default function BlogComment({ slug }) {
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="写下你的评论..."
+            placeholder={t('blog.commentPlaceholder')}
             rows={3}
-            className="w-full resize-none rounded-xl border border-slate-600/60 bg-slate-800/50 px-3.5 py-2.5 text-sm text-white placeholder-slate-400 outline-none transition focus:border-sky-500/50 sm:text-base"
+            className="w-full resize-none rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[color:var(--text-primary)] placeholder:text-[color:var(--text-faint)] outline-none transition focus:border-[color:var(--accent-border)] sm:text-base"
           />
           <div className="mt-2 flex justify-end">
             <button
               type="submit"
               disabled={!content.trim() || submitting}
-              className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-1.5 text-xs text-sky-100 transition hover:border-sky-400/50 hover:bg-sky-500/20 disabled:opacity-40 sm:text-sm"
+              className="rounded-lg border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-4 py-1.5 text-xs text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-40 sm:text-sm"
             >
-              {submitting ? '提交中...' : '发表评论'}
+              {submitting ? t('blog.commentSubmitting') : t('blog.submitComment')}
             </button>
           </div>
         </form>
       ) : (
-        <div className="mb-6 rounded-xl border border-slate-700/50 bg-slate-800/30 p-4 text-center text-sm text-slate-400">
-          <Link to={`/login?redirect=${encodeURIComponent(window.location.pathname)}`} className="text-sky-300 underline transition hover:text-sky-200">
-            登录
+        <div className="mb-6 rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] p-4 text-center text-sm text-[color:var(--text-muted)]">
+          <Link to={`/login?redirect=${encodeURIComponent(window.location.pathname)}`} className="text-[color:var(--accent-solid)] underline transition hover:opacity-80">
+            {t('blog.loginToComment')}
           </Link>
-          {' 后即可发表评论'}
         </div>
       )}
 
       {comments.length === 0 && (
-        <p className="py-4 text-center text-sm text-slate-500">暂无评论</p>
+        <p className="py-4 text-center text-sm text-[color:var(--text-faint)]">{t('blog.noComments')}</p>
       )}
 
       <div className="flex flex-col gap-4">
@@ -108,13 +104,13 @@ export default function BlogComment({ slug }) {
               <div className="flex items-center gap-2">
                 <Link
                   to={`/blog/${encodeURIComponent(comment.authorProfile?.nickname || comment.author)}`}
-                  className="text-sm font-medium text-slate-200 transition hover:text-sky-200"
+                  className="text-sm font-medium text-[color:var(--text-secondary)] transition hover:text-[color:var(--text-primary)]"
                 >
                   {comment.authorProfile?.nickname || comment.author}
                 </Link>
-                <span className="text-xs text-slate-500">{formatDate(comment.createdAt)}</span>
+                <span className="text-xs text-[color:var(--text-faint)]">{formatDate(comment.createdAt, { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
               </div>
-              <p className="mt-1 text-sm leading-relaxed text-slate-300">{comment.content}</p>
+              <p className="mt-1 text-sm leading-relaxed text-[color:var(--text-secondary)]">{comment.content}</p>
             </div>
           </div>
         ))}
@@ -125,17 +121,17 @@ export default function BlogComment({ slug }) {
           <button
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
-            className="rounded-lg border border-slate-600/60 bg-slate-800/40 px-3 py-1.5 text-xs text-slate-200 transition hover:border-slate-500/80 disabled:opacity-40"
+            className="rounded-lg border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-3 py-1.5 text-xs text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-40"
           >
-            上一页
+            {t('common.previousPage')}
           </button>
-          <span className="text-xs text-slate-400">{page} / {totalPages}</span>
+          <span className="text-xs text-[color:var(--text-muted)]">{page} / {totalPages}</span>
           <button
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
-            className="rounded-lg border border-slate-600/60 bg-slate-800/40 px-3 py-1.5 text-xs text-slate-200 transition hover:border-slate-500/80 disabled:opacity-40"
+            className="rounded-lg border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-3 py-1.5 text-xs text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-40"
           >
-            下一页
+            {t('common.nextPage')}
           </button>
         </div>
       )}

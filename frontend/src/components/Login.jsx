@@ -5,15 +5,17 @@ import {
   requestRegistration,
   verifyRegistration,
 } from '../services/api';
+import LanguageThemeControls from './LanguageThemeControls';
+import { useAppShell } from '../contexts/AppShellContext';
 
 const LOGIN_IDENTITY_KEY = 'login_username';
 const REGISTER_COOLDOWN_KEY = 'register_cooldown_until';
-const FIELD_LABEL_CLASS = 'mb-2 block text-sm font-medium text-slate-300/85';
-const INPUT_CLASS = 'w-full rounded-2xl border border-slate-600/60 bg-slate-800/55 px-4 py-3 text-slate-50 placeholder:text-slate-400/70 outline-none transition-all focus:border-sky-500/50 focus:bg-slate-800/75';
-const ERROR_CLASS = 'rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3';
-const PRIMARY_BUTTON_CLASS = 'flex w-full items-center justify-center gap-2 rounded-2xl border border-sky-400/20 bg-sky-500/90 py-3 font-medium text-white transition-all duration-200 hover:bg-sky-400 disabled:cursor-not-allowed disabled:border-sky-500/10 disabled:bg-sky-500/45';
-const SECONDARY_BUTTON_CLASS = 'w-full rounded-2xl border border-slate-600/60 bg-slate-800/50 py-3 font-medium text-slate-100 transition-all duration-200 hover:bg-slate-700/65';
-const TABS_CONTAINER_CLASS = 'mb-6 grid grid-cols-2 rounded-2xl border border-slate-700/60 bg-slate-900/35 p-1';
+const FIELD_LABEL_CLASS = 'mb-2 block text-sm font-medium text-[color:var(--text-secondary)]';
+const INPUT_CLASS = 'w-full rounded-2xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-4 py-3 text-[color:var(--text-primary)] placeholder:text-[color:var(--text-faint)] outline-none transition-all focus:border-[color:var(--accent-border)] focus:bg-[var(--input-bg-focus)]';
+const ERROR_CLASS = 'rounded-2xl border border-[color:var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3';
+const PRIMARY_BUTTON_CLASS = 'flex w-full items-center justify-center gap-2 rounded-2xl border border-transparent bg-[var(--accent-solid)] py-3 font-medium text-[var(--accent-solid-text)] transition-all duration-200 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45';
+const SECONDARY_BUTTON_CLASS = 'w-full rounded-2xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] py-3 font-medium text-[color:var(--text-primary)] transition-all duration-200 hover:bg-[var(--surface-hover)]';
+const TABS_CONTAINER_CLASS = 'mb-6 grid grid-cols-2 rounded-2xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] p-1';
 
 function getStoredIdentity() {
   return localStorage.getItem(LOGIN_IDENTITY_KEY) || '';
@@ -24,8 +26,9 @@ function getStoredCooldownUntil() {
   return Number.isFinite(raw) && raw > Date.now() ? raw : 0;
 }
 
-export default function Login({ onLogin, onBack }) {
-  const [mode, setMode] = useState('login');
+export default function Login({ onLogin, onBack, initialMode = 'login' }) {
+  const { t } = useAppShell();
+  const [mode, setMode] = useState(initialMode === 'register' ? 'register' : 'login');
   const [registerStep, setRegisterStep] = useState('form');
   const [email, setEmail] = useState(() => getStoredIdentity());
   const [password, setPassword] = useState('');
@@ -48,6 +51,10 @@ export default function Login({ onLogin, onBack }) {
       setEmail(getStoredIdentity());
     }
   }, []);
+
+  useEffect(() => {
+    setMode(initialMode === 'register' ? 'register' : 'login');
+  }, [initialMode]);
 
   useEffect(() => {
     if (isRegisterMode && registerStep === 'form' && !captcha) {
@@ -93,7 +100,7 @@ export default function Login({ onLogin, onBack }) {
       setCaptcha(nextCaptcha);
       setCaptchaAnswer('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '加载人机验证失败');
+      setError(err instanceof Error ? err.message : t('login.loadCaptchaFailed'));
     }
   };
 
@@ -134,7 +141,7 @@ export default function Login({ onLogin, onBack }) {
       const { user, token } = await login(email, password);
       persistAuthenticatedUser({ user, token, fallbackIdentity: email });
     } catch (err) {
-      setError(err instanceof Error ? err.message : '登录失败，请重试');
+      setError(err instanceof Error ? err.message : t('login.loginFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -159,10 +166,13 @@ export default function Login({ onLogin, onBack }) {
       applyCooldown(result.retryAfterSeconds || 60);
       setRegisterStep('verify');
       setVerificationCode('');
-      setNotice(`验证码已发送至 ${result.email}，10 分钟内有效。${result.retryAfterSeconds ? ` ${result.retryAfterSeconds} 秒后可重新发送。` : ''}`);
+      setNotice(
+        t('login.codeSentNotice', { email: result.email })
+        + (result.retryAfterSeconds ? t('login.codeResendNotice', { seconds: result.retryAfterSeconds }) : '')
+      );
     } catch (err) {
       applyCooldown(err?.retryAfterSeconds || 0);
-      setError(err instanceof Error ? err.message : '发送验证码失败');
+      setError(err instanceof Error ? err.message : t('login.sendCodeFailed'));
       await loadCaptcha();
     } finally {
       setIsLoading(false);
@@ -179,7 +189,7 @@ export default function Login({ onLogin, onBack }) {
       const { user, token } = await verifyRegistration(email, verificationCode);
       persistAuthenticatedUser({ user, token, fallbackIdentity: email });
     } catch (err) {
-      setError(err instanceof Error ? err.message : '验证失败，请重试');
+      setError(err instanceof Error ? err.message : t('login.verifyFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -194,46 +204,50 @@ export default function Login({ onLogin, onBack }) {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#162033] p-4">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--page-bg-chat)] p-4 text-[color:var(--text-primary)]">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.12),transparent_28%),radial-gradient(circle_at_82%_14%,rgba(99,102,241,0.10),transparent_24%),radial-gradient(circle_at_50%_100%,rgba(30,41,59,0.24),transparent_36%)]" />
         <div className="absolute inset-0 opacity-[0.08] [background-image:linear-gradient(rgba(148,163,184,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.12)_1px,transparent_1px)] [background-size:48px_48px]" />
       </div>
 
+      <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-6">
+        <LanguageThemeControls />
+      </div>
+
       <div className="relative z-10 w-full max-w-md">
-        <div className="rounded-[30px] border border-slate-700/60 bg-[linear-gradient(180deg,rgba(30,41,59,0.92),rgba(15,23,42,0.94))] p-8 shadow-[0_24px_60px_rgba(15,23,42,0.22)] backdrop-blur-xl">
+        <div className="rounded-[30px] border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] p-8 shadow-[var(--surface-shadow)] backdrop-blur-xl">
           {onBack && (
             <button
               type="button"
               onClick={onBack}
-              className="mb-4 -ml-2 inline-flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-sm text-slate-400 transition hover:text-slate-200"
+              className="mb-4 -ml-2 inline-flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-sm text-[color:var(--text-muted)] transition hover:text-[color:var(--text-primary)]"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="19" y1="12" x2="5" y2="12" />
                 <polyline points="12 19 5 12 12 5" />
               </svg>
-              返回
+              {t('login.back')}
             </button>
           )}
           <div className="mb-8 text-center">
-            <h1 className="mb-2 text-3xl font-bold text-slate-50">XiaoNiu Tech</h1>
-            <p className="text-slate-300/70">{isRegisterMode ? '注册新账号并完成邮箱验证' : '欢迎回来，请登录'}</p>
+            <h1 className="mb-2 text-3xl font-bold text-[color:var(--text-primary)]">{t('login.title')}</h1>
+            <p className="text-[color:var(--text-muted)]">{isRegisterMode ? t('login.registerIntro') : t('login.welcomeBack')}</p>
           </div>
 
           <div className={TABS_CONTAINER_CLASS}>
             <button
               type="button"
               onClick={() => switchMode('login')}
-              className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${!isRegisterMode ? 'bg-sky-500/90 text-white shadow-[0_10px_24px_rgba(56,189,248,0.18)]' : 'text-slate-400 hover:text-slate-100'}`}
+              className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${!isRegisterMode ? 'bg-[var(--accent-solid)] text-[var(--accent-solid-text)] shadow-[0_10px_24px_rgba(14,165,233,0.18)]' : 'text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)]'}`}
             >
-              登录
+              {t('login.loginTab')}
             </button>
             <button
               type="button"
               onClick={() => switchMode('register')}
-              className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${isRegisterMode ? 'bg-sky-500/90 text-white shadow-[0_10px_24px_rgba(56,189,248,0.18)]' : 'text-slate-400 hover:text-slate-100'}`}
+              className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${isRegisterMode ? 'bg-[var(--accent-solid)] text-[var(--accent-solid-text)] shadow-[0_10px_24px_rgba(14,165,233,0.18)]' : 'text-[color:var(--text-muted)] hover:text-[color:var(--text-primary)]'}`}
             >
-              注册
+              {t('login.registerTab')}
             </button>
           </div>
 
@@ -241,35 +255,35 @@ export default function Login({ onLogin, onBack }) {
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label className={FIELD_LABEL_CLASS}>
-                  邮箱
+                  {t('common.email')}
                 </label>
                 <input
                   type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className={INPUT_CLASS}
-                  placeholder="请输入邮箱"
+                  placeholder={t('login.emailPlaceholder')}
                   autoComplete="email"
                 />
               </div>
 
               <div>
                 <label className={FIELD_LABEL_CLASS}>
-                  密码
+                  {t('common.password')}
                 </label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className={INPUT_CLASS}
-                  placeholder="请输入密码"
+                  placeholder={t('login.passwordPlaceholder')}
                   autoComplete="current-password"
                 />
               </div>
 
               {error && (
                 <div className={ERROR_CLASS}>
-                  <p className="text-sm text-red-400">{error}</p>
+                  <p className="text-sm text-[color:var(--danger-text)]">{error}</p>
                 </div>
               )}
 
@@ -284,10 +298,10 @@ export default function Login({ onLogin, onBack }) {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    <span>登录中...</span>
+                    <span>{t('login.loginLoading')}</span>
                   </>
                 ) : (
-                  <span>登录</span>
+                  <span>{t('login.loginTab')}</span>
                 )}
               </button>
 
@@ -296,7 +310,7 @@ export default function Login({ onLogin, onBack }) {
                 onClick={handleGuestAccess}
                 className={SECONDARY_BUTTON_CLASS}
               >
-                游客访问
+                {t('login.guestAccess')}
               </button>
             </form>
           )}
@@ -305,67 +319,67 @@ export default function Login({ onLogin, onBack }) {
             <form onSubmit={handleRequestRegistration} className="space-y-5">
               <div>
                 <label className={FIELD_LABEL_CLASS}>
-                  邮箱
+                  {t('common.email')}
                 </label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className={INPUT_CLASS}
-                  placeholder="请输入邮箱"
+                  placeholder={t('login.emailPlaceholder')}
                   autoComplete="email"
                 />
               </div>
 
               <div>
                 <label className={FIELD_LABEL_CLASS}>
-                  密码
+                  {t('common.password')}
                 </label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className={INPUT_CLASS}
-                  placeholder="请设置密码，至少 8 位"
+                  placeholder={t('login.newPasswordPlaceholder')}
                   autoComplete="new-password"
                 />
               </div>
 
-              <div className="rounded-[24px] border border-slate-700/60 bg-slate-900/30 p-4">
+              <div className="rounded-[24px] border border-[color:var(--surface-border)] bg-[var(--surface-bg)] p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-medium text-slate-100">人机验证</p>
-                    <p className="text-xs text-slate-400/80">请回答下面的算术题</p>
+                    <p className="text-sm font-medium text-[color:var(--text-primary)]">{t('login.captchaTitle')}</p>
+                    <p className="text-xs text-[color:var(--text-muted)]">{t('login.captchaDescription')}</p>
                   </div>
                   <button
                     type="button"
                     onClick={loadCaptcha}
-                    className="text-sm text-sky-300 transition hover:text-sky-200"
+                    className="text-sm text-[color:var(--accent-solid)] transition hover:opacity-80"
                   >
-                    换一题
+                    {t('login.captchaRefresh')}
                   </button>
                 </div>
-                <div className="mb-3 rounded-2xl border border-slate-700/60 bg-slate-800/45 px-4 py-3 text-center text-lg font-semibold tracking-wide text-slate-50">
-                  {captcha?.question || '加载中...'}
+                <div className="mb-3 rounded-2xl border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] px-4 py-3 text-center text-lg font-semibold tracking-wide text-[color:var(--text-primary)]">
+                  {captcha?.question || t('login.captchaLoading')}
                 </div>
                 <input
                   type="text"
                   value={captchaAnswer}
                   onChange={(e) => setCaptchaAnswer(e.target.value)}
                   className={INPUT_CLASS}
-                  placeholder="请输入答案"
+                  placeholder={t('login.captchaAnswerPlaceholder')}
                 />
               </div>
 
               {error && (
                 <div className={ERROR_CLASS}>
-                  <p className="text-sm text-red-400">{error}</p>
+                  <p className="text-sm text-[color:var(--danger-text)]">{error}</p>
                 </div>
               )}
 
               {isCooldownActive && (
-                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-                  已发送验证码，请在 {cooldownSeconds} 秒后重试。
+                <div className="rounded-2xl border border-[color:var(--warning-border)] bg-[var(--warning-soft)] px-4 py-3 text-sm text-[color:var(--warning-text)]">
+                  {t('login.resendIn', { seconds: cooldownSeconds })}
                 </div>
               )}
 
@@ -374,26 +388,26 @@ export default function Login({ onLogin, onBack }) {
                 disabled={isLoading || !captcha?.challengeId || isCooldownActive}
                 className={PRIMARY_BUTTON_CLASS}
               >
-                {isLoading ? '发送中...' : isCooldownActive ? `${cooldownSeconds} 秒后可重发` : '发送邮箱验证码'}
+                {isLoading ? t('login.sendCodeLoading') : isCooldownActive ? t('login.resendIn', { seconds: cooldownSeconds }) : t('login.sendCode')}
               </button>
             </form>
           )}
 
           {isRegisterMode && registerStep === 'verify' && (
             <form onSubmit={handleVerifyRegistration} className="space-y-5">
-              <div className="rounded-2xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-sm text-sky-100">
-                {notice || `验证码已发送到 ${email}`}
+              <div className="rounded-2xl border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[color:var(--text-primary)]">
+                {notice || t('login.codeSentNotice', { email })}
               </div>
 
               {isCooldownActive && (
-                <div className="rounded-2xl border border-slate-700/60 bg-slate-900/35 px-4 py-3 text-sm text-slate-300">
-                  如需重发验证码，请返回上一步，{cooldownSeconds} 秒后可再次发送。
+                <div className="rounded-2xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-4 py-3 text-sm text-[color:var(--text-secondary)]">
+                  {t('login.resendIn', { seconds: cooldownSeconds })}
                 </div>
               )}
 
               <div>
                 <label className={FIELD_LABEL_CLASS}>
-                  邮箱验证码
+                  {t('login.codePlaceholder')}
                 </label>
                 <input
                   type="text"
@@ -401,13 +415,13 @@ export default function Login({ onLogin, onBack }) {
                   value={verificationCode}
                   onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   className={`${INPUT_CLASS} text-center tracking-[0.35em]`}
-                  placeholder="请输入 6 位验证码"
+                  placeholder={t('login.codePlaceholder')}
                 />
               </div>
 
               {error && (
                 <div className={ERROR_CLASS}>
-                  <p className="text-sm text-red-400">{error}</p>
+                  <p className="text-sm text-[color:var(--danger-text)]">{error}</p>
                 </div>
               )}
 
@@ -416,7 +430,7 @@ export default function Login({ onLogin, onBack }) {
                 disabled={isLoading || verificationCode.length !== 6}
                 className={PRIMARY_BUTTON_CLASS}
               >
-                {isLoading ? '验证中...' : '完成注册'}
+                {isLoading ? t('login.verifyLoading') : t('login.verifyAndLogin')}
               </button>
 
               <button
@@ -428,13 +442,13 @@ export default function Login({ onLogin, onBack }) {
                 }}
                 className={SECONDARY_BUTTON_CLASS}
               >
-                返回重新填写
+                {t('login.switchToLogin')}
               </button>
             </form>
           )}
         </div>
 
-        <p className="mt-6 text-center text-sm text-slate-400/60">
+        <p className="mt-6 text-center text-sm text-[color:var(--text-faint)]">
           © 2026 XiaoNiu Tech. All rights reserved.
         </p>
       </div>

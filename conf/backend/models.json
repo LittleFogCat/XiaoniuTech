@@ -117,22 +117,11 @@
     ]
   },
   "openrouter": {
-    "baseUrl": "https://openrouter.ai/api/v1",
+    "baseUrl": "http://104.168.136.5/openrouter/",
     "api": "openai-completions",
     "apiKey": "${OPENROUTER_API_KEY}",
     "authHeader": true,
     "models": [
-      {
-        "id": "z-ai/glm-4.5-air:free",
-        "name": "GLM-4.5-Air",
-        "reasoning": false,
-        "input": ["text"],
-        "contextWindow": 202800,
-        "maxTokens": 131100,
-        "compat": {
-          "maxTokensField": "max_tokens"
-        }
-      },
       {
         "id": "minimax/minimax-m2.5",
         "name": "MiniMax M2.5",
@@ -145,19 +134,19 @@
         }
       },
       {
-        "id": "xiaomi/mimo-v2-pro",
-        "name": "Xiaomi MiMo V2 Pro",
+        "id": "x-ai/grok-4.1-fast",
+        "name": "Grok-4.1 Fast",
         "reasoning": true,
         "input": ["text"],
-        "contextWindow": 128000,
-        "maxTokens": 16384,
+        "contextWindow": 202800,
+        "maxTokens": 131100,
         "compat": {
           "maxTokensField": "max_tokens"
         }
       },
       {
-        "id": "z-ai/glm-5.1",
-        "name": "Z-AI GLM-5.1",
+        "id": "x-ai/grok-4.3",
+        "name": "Grok-4.3",
         "reasoning": true,
         "input": ["text"],
         "contextWindow": 202800,

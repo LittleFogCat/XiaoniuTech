@@ -7,7 +7,10 @@ import Sidebar from '../components/Sidebar';
 import Login from '../components/Login';
 import IdentityAvatar from '../components/IdentityAvatar';
 import IdentityPicker from '../components/IdentityPicker';
+import LanguageThemeControls from '../components/LanguageThemeControls';
+import UserAccountMenu from '../components/UserAccountMenu';
 import useTransientScrollbar from '../hooks/useTransientScrollbar';
+import { useAppShell } from '../contexts/AppShellContext';
 import {
   fetchModels,
   fetchIdentities,
@@ -30,7 +33,6 @@ const CHAT_VIEW = {
   conversation: 'conversation',
   identities: 'identities',
 };
-const DEFAULT_ASSISTANT_NAME = 'AI 助手';
 const CHAT_THEME_COLOR = '#162033';
 const STREAM_UI_UPDATE_INTERVAL_MS = 100;
 const SCROLL_BOTTOM_THRESHOLD_PX = 48;
@@ -113,24 +115,28 @@ function normalizeModelId(modelId, models, fallback = '') {
   return fallback || modelId;
 }
 
-function resolveIdentityMeta(chat, identities) {
+function resolveIdentityMeta(chat, identities, t) {
   if (chat?.chatTarget?.type !== 'identity') {
     return null;
   }
 
   return identities.find(identity => identity.id === chat.chatTarget.id) || {
     id: chat.chatTarget.id,
-    name: chat.title || '智能体',
+    name: chat.title || t('common.agentName'),
     description: '',
     avatarUrl: '',
   };
 }
 
-function buildChatTitle(content, chat, identityMeta) {
+function buildChatTitle(content, chat, identityMeta, t) {
   if (chat?.chatTarget?.type === 'identity') {
-    return identityMeta?.name || chat.title || '智能体对话';
+    return identityMeta?.name || chat.title || t('common.agentConversation');
   }
   return content.slice(0, 20) + (content.length > 20 ? '...' : '');
+}
+
+function formatChatError(error, t) {
+  return t('chat.errorPrefix', { message: error.message });
 }
 
 function isPersistedChat(chat) {
@@ -155,6 +161,7 @@ function upsertAssistantMessage(messages, content, thinking = false) {
 }
 
 export default function ChatPage() {
+  const { t, theme } = useAppShell();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authMode, setAuthMode] = useState('user');
   const [hasCheckedLogin, setHasCheckedLogin] = useState(false);
@@ -178,18 +185,21 @@ export default function ChatPage() {
   const { isScrollbarVisible: isChatScrollbarVisible, markScrollbarVisible: markChatScrollbarVisible } = useTransientScrollbar();
   const safeMessages = Array.isArray(currentChat?.messages) ? currentChat.messages : [];
   const isGuest = authMode === GUEST_MODE;
-  const activeIdentity = resolveIdentityMeta(currentChat, identities);
+  const activeIdentity = resolveIdentityMeta(currentChat, identities, t);
   const hasConversationStarted = safeMessages.length > 0;
   const showCenteredComposer = viewMode === CHAT_VIEW.conversation && models.length > 0 && (!currentChat || !hasConversationStarted);
-  const assistantName = activeIdentity?.name || DEFAULT_ASSISTANT_NAME;
+  const hasAccountSession = isLoggedIn && !isGuest;
+  const assistantName = activeIdentity?.name || t('common.assistantName');
   const assistantAvatarUrl = activeIdentity?.avatarUrl || '';
-  const authActionLabel = isGuest ? '登录' : '登出';
-  const authActionTitle = isGuest ? '返回登录页' : '登出';
+  const activeIdentityLabel = activeIdentity ? [activeIdentity.role, activeIdentity.name].filter(Boolean).join(' · ') : '';
+  const authActionLabel = isGuest ? t('common.login') : t('common.logout');
+  const authActionTitle = isGuest ? t('chat.authLoginTitle') : t('chat.authLogoutTitle');
+  const chatThemeColor = theme === 'light' ? '#f3f6fb' : CHAT_THEME_COLOR;
 
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
-    const restoreThemeColor = setNamedMetaContent('theme-color', CHAT_THEME_COLOR);
+    const restoreThemeColor = setNamedMetaContent('theme-color', chatThemeColor);
 
     html.classList.add('chat-page-active');
     body.classList.add('chat-page-active');
@@ -199,16 +209,16 @@ export default function ChatPage() {
       html.classList.remove('chat-page-active');
       body.classList.remove('chat-page-active');
     };
-  }, []);
+  }, [chatThemeColor]);
 
   useEffect(() => {
     if (viewMode === CHAT_VIEW.identities) {
-      document.title = '选择智能体 | XN Chat';
+      document.title = t('chat.selectIdentityTitle');
       return;
     }
 
-    document.title = activeIdentity?.name ? `${activeIdentity.name} | XN Chat` : 'XN Chat';
-  }, [viewMode, activeIdentity?.name]);
+    document.title = activeIdentity?.name ? `${activeIdentity.name} | ${t('common.chatName')}` : t('chat.pageTitle');
+  }, [viewMode, activeIdentity?.name, t]);
 
   useEffect(() => {
     if (!mobileActionsOpen) {
@@ -414,7 +424,7 @@ export default function ChatPage() {
     } else {
       const created = {
         id: chatId,
-        title: payload.title || '新对话',
+        title: payload.title || t('common.untitledChat'),
         model: payload.model || selectedModel || 'glm-5.1',
         chatTarget: payload.chatTarget ?? null,
         messages: payload.messages || [],
@@ -466,7 +476,7 @@ export default function ChatPage() {
 
     if (isGuest) {
       if (chats.length >= GUEST_CHAT_LIMIT) {
-        setGuestLimitNotice('游客聊天记录已达到 10 条上限，请登录后继续创建新会话。');
+        setGuestLimitNotice(t('chat.guestLimitCreate', { limit: GUEST_CHAT_LIMIT }));
         return;
       }
 
@@ -569,18 +579,18 @@ export default function ChatPage() {
   const handleSend = async (content) => {
     const effectiveModel = normalizeModelId(selectedModel, models, selectedModel);
     const activeChatTarget = currentChat?.chatTarget || null;
-    const title = buildChatTitle(content, currentChat, activeIdentity);
+    const title = buildChatTitle(content, currentChat, activeIdentity, t);
     const persistedTitle = currentChat?.title || title;
     let chatId = currentChat?.id || null;
     let draftChat = currentChat;
 
     if (!effectiveModel || isLoading) return;
     if (isGuest && !currentChat && chats.length >= GUEST_CHAT_LIMIT) {
-      setGuestLimitNotice('游客聊天记录已达到 10 条上限，请登录后继续。');
+      setGuestLimitNotice(t('chat.guestLimitContinue', { limit: GUEST_CHAT_LIMIT }));
       return;
     }
     if (isGuest && currentChat && !chats.some(chat => chat.id === currentChat.id) && chats.length >= GUEST_CHAT_LIMIT) {
-      setGuestLimitNotice('游客聊天记录已达到 10 条上限，请登录后继续。');
+      setGuestLimitNotice(t('chat.guestLimitContinue', { limit: GUEST_CHAT_LIMIT }));
       return;
     }
 
@@ -726,16 +736,17 @@ export default function ChatPage() {
       }
     } catch (error) {
       console.error('Chat error:', error);
-      const errorMessages = [...newMessages, { role: 'assistant', content: `错误: ${error.message}` }];
+      const errorText = formatChatError(error, t);
+      const errorMessages = [...newMessages, { role: 'assistant', content: errorText }];
       setCurrentChat(prev => {
         if (!prev) return prev;
         const nextMessages = [...prev.messages];
         const lastMessage = nextMessages[nextMessages.length - 1];
         if (lastMessage && lastMessage.role === 'assistant') {
-          lastMessage.content = `错误: ${error.message}`;
+          lastMessage.content = errorText;
           lastMessage.thinking = false;
         } else {
-          nextMessages.push({ role: 'assistant', content: `错误: ${error.message}` });
+          nextMessages.push({ role: 'assistant', content: errorText });
         }
         return { ...prev, messages: nextMessages };
       });
@@ -828,7 +839,7 @@ export default function ChatPage() {
           throw error;
         }
         const recreatedChat = await createChat({
-          title: currentChat.title || '新对话',
+          title: currentChat.title || t('common.untitledChat'),
           model: normalizedModelId,
           chatTarget: currentChat.chatTarget || null,
           messages: currentChat.messages || [],
@@ -878,7 +889,7 @@ export default function ChatPage() {
       } else if (isGuest) {
         const updatedMessages = [...nextMessages, { role: 'assistant', content: fullContent }];
         const updated = upsertGuestChat(currentChat.id, {
-          title: currentChat.title || '新对话',
+          title: currentChat.title || t('common.untitledChat'),
           model: effectiveModel,
           chatTarget: currentChat.chatTarget || null,
           messages: updatedMessages,
@@ -896,7 +907,7 @@ export default function ChatPage() {
             throw error;
           }
           const recreatedChat = await createChat({
-            title: currentChat.title || '新对话',
+            title: currentChat.title || t('common.untitledChat'),
             model: effectiveModel,
             chatTarget: currentChat.chatTarget || null,
             messages: updatedMessages,
@@ -914,7 +925,7 @@ export default function ChatPage() {
 
   if (!hasCheckedLogin) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#162033]">
+      <div className="flex min-h-screen items-center justify-center bg-[var(--page-bg-chat)]">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-sky-300/60 border-t-transparent" />
       </div>
     );
@@ -925,7 +936,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="relative flex min-h-[100svh] h-[100dvh] overflow-hidden bg-[#162033] text-white [overscroll-behavior-y:none]">
+    <div className="relative flex h-[100dvh] min-h-[100svh] overflow-hidden bg-[var(--page-bg-chat)] text-[color:var(--text-primary)] [overscroll-behavior-y:none]">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.10),transparent_28%),radial-gradient(circle_at_80%_16%,rgba(99,102,241,0.08),transparent_24%),radial-gradient(circle_at_50%_100%,rgba(30,41,59,0.22),transparent_34%)]" />
         <div className="absolute inset-0 opacity-[0.08] [background-image:linear-gradient(rgba(148,163,184,0.12)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.12)_1px,transparent_1px)] [background-size:48px_48px]" />
@@ -944,12 +955,12 @@ export default function ChatPage() {
       />
 
       <div className="relative z-10 flex min-w-0 flex-1 flex-col p-0 sm:p-3">
-        <header className="relative z-30 flex items-center gap-2.5 border-b border-slate-700/60 bg-[linear-gradient(180deg,rgba(30,41,59,0.82),rgba(17,24,39,0.82))] px-2.5 py-2.5 backdrop-blur-lg sm:gap-3 sm:rounded-[28px] sm:border sm:px-4 sm:py-3.5 sm:shadow-[0_16px_38px_rgba(15,23,42,0.18)]">
+        <header className="relative z-30 flex items-center gap-2.5 border-b border-[color:var(--surface-border)] bg-[var(--header-bg)] px-2.5 py-2.5 backdrop-blur-lg sm:gap-3 sm:rounded-[28px] sm:border sm:px-4 sm:py-3.5 sm:shadow-[var(--surface-shadow)]">
           <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
             <Link
               to="/"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-600/70 bg-slate-800/35 text-slate-100 transition hover:border-slate-500/80 hover:bg-slate-700/55"
-              title="返回主页"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+              title={t('common.backHome')}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
@@ -958,8 +969,8 @@ export default function ChatPage() {
             </Link>
             <button
               onClick={() => setMobileSidebarOpen(true)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-600/70 bg-slate-800/35 text-slate-100 transition hover:border-slate-500/80 hover:bg-slate-700/55 md:hidden"
-              title="打开聊天记录"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)] md:hidden"
+              title={t('chat.openHistory')}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="3" y1="6" x2="21" y2="6" />
@@ -968,22 +979,23 @@ export default function ChatPage() {
               </svg>
             </button>
             <div className="min-w-0">
-              <div className="truncate text-[15px] font-semibold text-white sm:text-lg">XN Chat</div>
-              <div className="mt-0.5 truncate text-[11px] text-slate-400/75 sm:text-xs">
+              <div className="truncate text-[15px] font-semibold text-[color:var(--text-primary)] sm:text-lg">{t('common.chatName')}</div>
+              <div className="mt-0.5 truncate text-[11px] text-[color:var(--text-faint)] sm:text-xs">
                 <span className="sm:hidden">
-                  {activeIdentity ? `当前：${activeIdentity.name}` : '多模型对话工作台'}
+                  {activeIdentity ? t('chat.currentCompact', { name: activeIdentityLabel || activeIdentity.name }) : t('chat.multiModelWorkbench')}
                 </span>
                 <span className="hidden sm:inline">
-                  {activeIdentity ? `当前会话：${activeIdentity.name}` : '多模型流式聊天工作台'}
+                  {activeIdentity ? t('chat.currentSession', { name: activeIdentityLabel || activeIdentity.name }) : t('chat.streamWorkbench')}
                 </span>
               </div>
             </div>
           </div>
 
           <div className="hidden min-w-0 items-center justify-end gap-2 md:flex md:w-auto md:flex-none md:gap-3">
+            <LanguageThemeControls />
             {isGuest && (
-              <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-400/10 px-2.5 py-1 text-[11px] text-amber-200 sm:px-3 sm:text-xs">
-                游客模式
+              <span className="shrink-0 rounded-full border border-[color:var(--warning-border)] bg-[var(--warning-soft)] px-2.5 py-1 text-[11px] text-[color:var(--warning-text)] sm:px-3 sm:text-xs">
+                {t('common.guestMode')}
               </span>
             )}
             {models.length > 0 && (
@@ -997,102 +1009,114 @@ export default function ChatPage() {
             )}
             <button
               onClick={handleOpenIdentities}
-              className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium transition sm:h-11 sm:rounded-2xl sm:px-4 ${viewMode === CHAT_VIEW.identities ? 'border-sky-500/30 bg-sky-500/10 text-sky-100' : 'border-slate-600/70 bg-slate-800/35 text-slate-100 hover:border-slate-500/80 hover:bg-slate-700/55'}`}
+              className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium transition sm:h-11 sm:rounded-2xl sm:px-4 ${viewMode === CHAT_VIEW.identities ? 'border-[color:var(--accent-border)] bg-[var(--accent-soft)] text-[color:var(--text-primary)]' : 'border-[color:var(--surface-border)] bg-[var(--surface-bg)] text-[color:var(--text-secondary)] hover:bg-[var(--surface-hover)]'}`}
             >
               <span className="text-[15px] leading-none sm:text-base">+</span>
-              <span>添加智能体</span>
+              <span>{t('chat.addAgent')}</span>
             </button>
-            <button
-              onClick={handleAuthAction}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-600/70 bg-slate-800/35 px-3 text-sm font-medium text-slate-100 transition hover:border-slate-500/80 hover:bg-slate-700/55 sm:h-11 sm:rounded-2xl sm:px-4"
-              title={authActionTitle}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
-              <span>{authActionLabel}</span>
-            </button>
+            {hasAccountSession ? (
+              <UserAccountMenu onLogout={handleLogout} />
+            ) : (
+              <button
+                onClick={handleAuthAction}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-3 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)] sm:h-11 sm:rounded-2xl sm:px-4"
+                title={authActionTitle}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                <span>{authActionLabel}</span>
+              </button>
+            )}
           </div>
 
-          <div ref={mobileActionsRef} className="relative z-40 md:hidden">
-            <button
-              type="button"
-              onClick={() => setMobileActionsOpen(open => !open)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-600/70 bg-slate-800/35 text-slate-100 transition hover:border-slate-500/80 hover:bg-slate-700/55"
-              title="打开操作菜单"
-              aria-expanded={mobileActionsOpen}
-              aria-haspopup="menu"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="5" r="1.5" />
-                <circle cx="12" cy="12" r="1.5" />
-                <circle cx="12" cy="19" r="1.5" />
-              </svg>
-            </button>
+          <div className="flex items-center gap-2 md:hidden">
+            {hasAccountSession && <UserAccountMenu onLogout={handleLogout} />}
 
-            {mobileActionsOpen && (
-              <div className="absolute right-0 top-[calc(100%+0.55rem)] z-50 w-[min(18rem,calc(100vw-1rem))] rounded-[24px] border border-slate-700/70 bg-[linear-gradient(180deg,rgba(30,41,59,0.96),rgba(15,23,42,0.98))] p-3 shadow-[0_18px_40px_rgba(15,23,42,0.28)] backdrop-blur-xl">
-                <div className="flex items-center justify-between gap-3 border-b border-slate-700/60 pb-3">
-                  <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-200/75">Actions</div>
-                    <div className="mt-1 text-sm font-medium text-white">聊天操作</div>
+            <div ref={mobileActionsRef} className="relative z-40">
+              <button
+                type="button"
+                onClick={() => setMobileActionsOpen(open => !open)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+                title={t('chat.openActions')}
+                aria-expanded={mobileActionsOpen}
+                aria-haspopup="menu"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="5" r="1.5" />
+                  <circle cx="12" cy="12" r="1.5" />
+                  <circle cx="12" cy="19" r="1.5" />
+                </svg>
+              </button>
+
+              {mobileActionsOpen && (
+                <div className="absolute right-0 top-[calc(100%+0.55rem)] z-50 w-[min(18rem,calc(100vw-1rem))] rounded-[24px] border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] p-3 shadow-[var(--surface-shadow)] backdrop-blur-xl">
+                  <div className="flex items-center justify-between gap-3 border-b border-[color:var(--surface-border)] pb-3">
+                    <div>
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--accent-solid)]">{t('chat.actionsLabel')}</div>
+                      <div className="mt-1 text-sm font-medium text-[color:var(--text-primary)]">{t('chat.actionsTitle')}</div>
+                    </div>
+                    {isGuest && (
+                      <span className="shrink-0 rounded-full border border-[color:var(--warning-border)] bg-[var(--warning-soft)] px-2.5 py-1 text-[11px] text-[color:var(--warning-text)]">
+                        {t('common.guestMode')}
+                      </span>
+                    )}
                   </div>
-                  {isGuest && (
-                    <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-400/10 px-2.5 py-1 text-[11px] text-amber-200">
-                      游客模式
-                    </span>
-                  )}
+
+                  <div className="mt-3 space-y-3">
+                    <LanguageThemeControls />
+
+                    {models.length > 0 && (
+                      <ModelSelect
+                        models={models}
+                        value={selectedModel}
+                        onChange={(modelId) => {
+                          handleModelChange(modelId);
+                          setMobileActionsOpen(false);
+                        }}
+                      />
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handleOpenIdentities}
+                      className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium transition ${viewMode === CHAT_VIEW.identities ? 'border-[color:var(--accent-border)] bg-[var(--accent-soft)] text-[color:var(--text-primary)]' : 'border-[color:var(--surface-border)] bg-[var(--surface-bg)] text-[color:var(--text-secondary)] hover:bg-[var(--surface-hover)]'}`}
+                    >
+                      <span className="text-[15px] leading-none">+</span>
+                      <span>{t('chat.addAgent')}</span>
+                    </button>
+
+                    {!hasAccountSession && (
+                      <button
+                        type="button"
+                        onClick={handleAuthAction}
+                        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-3 text-sm font-medium text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                        title={authActionTitle}
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                          <polyline points="16 17 21 12 16 7" />
+                          <line x1="21" y1="12" x2="9" y2="12" />
+                        </svg>
+                        <span>{authActionLabel}</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
-
-                <div className="mt-3 space-y-3">
-                  {models.length > 0 && (
-                    <ModelSelect
-                      models={models}
-                      value={selectedModel}
-                      onChange={(modelId) => {
-                        handleModelChange(modelId);
-                        setMobileActionsOpen(false);
-                      }}
-                    />
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={handleOpenIdentities}
-                    className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium transition ${viewMode === CHAT_VIEW.identities ? 'border-sky-500/30 bg-sky-500/10 text-sky-100' : 'border-slate-600/70 bg-slate-800/35 text-slate-100 hover:border-slate-500/80 hover:bg-slate-700/55'}`}
-                  >
-                    <span className="text-[15px] leading-none">+</span>
-                    <span>添加智能体</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleAuthAction}
-                    className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-600/70 bg-slate-800/35 px-3 text-sm font-medium text-slate-100 transition hover:border-slate-500/80 hover:bg-slate-700/55"
-                    title={authActionTitle}
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                      <polyline points="16 17 21 12 16 7" />
-                      <line x1="21" y1="12" x2="9" y2="12" />
-                    </svg>
-                    <span>{authActionLabel}</span>
-                  </button>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </header>
 
         {guestLimitNotice && (
-          <div className="mt-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-200 sm:mt-3 sm:px-4 sm:py-3">
+          <div className="mt-2 rounded-2xl border border-[color:var(--warning-border)] bg-[var(--warning-soft)] px-3 py-2.5 text-sm text-[color:var(--warning-text)] sm:mt-3 sm:px-4 sm:py-3">
             {guestLimitNotice}
           </div>
         )}
 
-        <div className="relative z-0 mt-0 flex min-h-0 flex-1 flex-col overflow-hidden rounded-none border-0 bg-[linear-gradient(180deg,rgba(30,41,59,0.72),rgba(15,23,42,0.76))] shadow-none backdrop-blur-lg sm:mt-3 sm:rounded-[30px] sm:border sm:border-slate-700/60 sm:shadow-[0_16px_40px_rgba(15,23,42,0.18)]">
+        <div className="relative z-0 mt-0 flex min-h-0 flex-1 flex-col overflow-hidden rounded-none border-0 bg-[var(--surface-bg)] shadow-none backdrop-blur-lg sm:mt-3 sm:rounded-[30px] sm:border sm:border-[color:var(--surface-border)] sm:shadow-[var(--surface-shadow)]">
           {viewMode === CHAT_VIEW.identities ? (
             <IdentityPicker
               identities={identities}
@@ -1109,26 +1133,26 @@ export default function ChatPage() {
               >
                 {loadError ? (
                   <div className="flex h-full items-center justify-center px-4">
-                    <div className="max-w-md px-4 text-center text-rose-300">
+                    <div className="max-w-md px-4 text-center text-[color:var(--danger-text)]">
                       <div className="mb-4">
                         <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
                       </div>
-                      <p className="mb-2 text-lg font-medium">加载失败</p>
-                      <p className="text-sm text-slate-400">{loadError}</p>
+                      <p className="mb-2 text-lg font-medium">{t('chat.loadFailed')}</p>
+                      <p className="text-sm text-[color:var(--text-muted)]">{loadError}</p>
                     </div>
                   </div>
                 ) : models.length === 0 ? (
                   <div className="flex h-full items-center justify-center px-4">
-                    <div className="text-center text-slate-300/80">
+                    <div className="text-center text-[color:var(--text-muted)]">
                       <div className="mb-4">
                         <svg className="mx-auto h-8 w-8 animate-spin text-sky-200/70" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                         </svg>
                       </div>
-                      <p className="text-lg">加载中...</p>
+                      <p className="text-lg">{t('chat.loadingModels')}</p>
                     </div>
                   </div>
                 ) : showCenteredComposer ? (
@@ -1136,30 +1160,32 @@ export default function ChatPage() {
                     <div className="w-full max-w-4xl py-8">
                       <div className="mb-8 text-center">
                         {activeIdentity ? (
-                          <div className="mx-auto flex max-w-2xl flex-col items-center rounded-[30px] border border-slate-700/60 bg-[linear-gradient(180deg,rgba(30,41,59,0.46),rgba(15,23,42,0.58))] px-6 py-7 shadow-[0_18px_42px_rgba(15,23,42,0.16)]">
+                          <div className="mx-auto flex max-w-2xl flex-col items-center rounded-[30px] border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] px-6 py-7 shadow-[var(--surface-shadow)]">
                             <IdentityAvatar name={activeIdentity.name} avatarUrl={activeIdentity.avatarUrl} size="xl" />
-                            <span className="mt-4 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-sky-100/90">
-                              Agent Linked
-                            </span>
-                            <h2 className="mt-4 text-3xl font-semibold text-white sm:text-4xl">和 {activeIdentity.name} 开始一段新对话</h2>
-                            <p className="mt-3 max-w-xl text-sm leading-7 text-slate-300/75 sm:text-base">
-                              {activeIdentity.description || '这个智能体已经绑定到当前会话，发送第一条消息后，对话会自动切换到底部输入模式。'}
+                            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                              <span className="rounded-full border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-[color:var(--accent-solid)]">
+                                {t('chat.linkedAgent')}
+                              </span>
+                              {activeIdentity.role && (
+                                <span className="rounded-full border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-3 py-1 text-xs font-medium text-[color:var(--text-secondary)]">
+                                  {activeIdentity.role}
+                                </span>
+                              )}
+                            </div>
+                            <h2 className="mt-4 text-3xl font-semibold text-[color:var(--text-primary)] sm:text-4xl">{t('chat.startConversationWith', { name: activeIdentity.name })}</h2>
+                            <p className="mt-3 max-w-xl text-sm leading-7 text-[color:var(--text-muted)] sm:text-base">
+                              {activeIdentity.description || t('chat.linkedAgentDescription')}
                             </p>
                           </div>
                         ) : (
                           <div>
-                            <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-sky-100/90">
-                              Neural Console
+                            <span className="rounded-full border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-[color:var(--accent-solid)]">
+                              {t('chat.neuralConsole')}
                             </span>
-                            <h2 className="mt-4 text-3xl font-semibold text-white sm:text-5xl">在这里开始下一段高效对话</h2>
-                            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-300/75 sm:text-base">
-                              支持多模型、流式回复和智能体人设。
+                            <h2 className="mt-4 text-3xl font-semibold text-[color:var(--text-primary)] sm:text-5xl">{t('chat.heroTitle')}</h2>
+                            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[color:var(--text-muted)] sm:text-base">
+                              {t('chat.heroDesc')}
                             </p>
-                            <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-300/70">
-                              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">流式回复</span>
-                              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">移动端适配</span>
-                              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">智能体绑定</span>
-                            </div>
                           </div>
                         )}
                       </div>
@@ -1196,8 +1222,8 @@ export default function ChatPage() {
                   <button
                     type="button"
                     onClick={scrollToLatest}
-                    className={`absolute bottom-[calc(100%+50px)] right-4 z-20 inline-flex h-12 w-12 items-center justify-center rounded-full border border-sky-400/20 bg-[linear-gradient(180deg,rgba(30,41,59,0.96),rgba(15,23,42,0.98))] text-sky-100 shadow-[0_18px_32px_rgba(15,23,42,0.24)] backdrop-blur-xl transition-all duration-200 sm:right-6 ${showScrollToBottom ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none translate-y-[200px] opacity-0'}`}
-                    title="回到底部"
+                    className={`absolute bottom-[calc(100%+50px)] right-4 z-20 inline-flex h-12 w-12 items-center justify-center rounded-full border border-[color:var(--accent-border)] bg-[var(--surface-bg-strong)] text-[color:var(--accent-solid)] shadow-[var(--surface-shadow)] backdrop-blur-xl transition-all duration-200 sm:right-6 ${showScrollToBottom ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none translate-y-[200px] opacity-0'}`}
+                    title={t('chat.backBottom')}
                     aria-hidden={!showScrollToBottom}
                   >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

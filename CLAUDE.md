@@ -67,7 +67,7 @@ docker compose -f conf/compose/docker-compose.yml up -d backend
 
 ### Identity / Agent System
 
-Identities are defined as Markdown seed files in `conf/backend/identities/*.md`. On startup, the backend imports any new identities into MongoDB (existing DB records are never overwritten). Markdown headings map to identity fields: `# 名称` → name, `# 描述` → description, `# 人格定义` → personaDefinition. The persona definition is injected as a system message when `chatTarget.type === 'identity'`.
+Identities are defined by metadata in `conf/backend/identities/identities.json` and persona text files in `conf/backend/identities/persona/*.md`. On startup, the backend imports any new identities into MongoDB (existing DB records are never overwritten, but missing seed `role` metadata is backfilled for existing seed identities). Each catalog entry provides `id`, `name`, `role`, `description`, and the matching `persona` file name. The persona definition is injected as a system message when `chatTarget.type === 'identity'`.
 
 ### Model Configuration
 

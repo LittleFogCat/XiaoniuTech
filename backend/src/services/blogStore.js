@@ -72,31 +72,16 @@ function getImportTitle(article = {}) {
 }
 
 function deriveImportedPost(article = {}) {
-  const originalContent = String(article.content || '').replace(/^\uFEFF/, '').trim();
-  if (!originalContent) {
+  const content = String(article.content || '').replace(/^\uFEFF/, '').trim();
+  if (!content) {
     const error = new Error(`${getImportName(article) || '未命名文件'} 内容为空`);
     error.statusCode = 400;
     throw error;
   }
 
-  let title = '';
-  let content = originalContent;
-  const lines = originalContent.split(/\r?\n/);
-  const firstContentIndex = lines.findIndex(line => line.trim() !== '');
-
-  if (firstContentIndex >= 0 && /^#\s+/.test(lines[firstContentIndex].trim())) {
-    title = lines[firstContentIndex].trim().replace(/^#\s+/, '').trim();
-    lines.splice(firstContentIndex, 1);
-    content = lines.join('\n').trim();
-  }
-
-  if (!title) {
-    title = getImportTitle(article);
-  }
-
   return {
-    title,
-    content: content || originalContent,
+    title: getImportTitle(article),
+    content,
     tags: [],
     published: false,
   };

@@ -13,6 +13,11 @@ const IdentitySchema = new mongoose.Schema(
       trim: true,
       unique: true,
     },
+    role: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     description: {
       type: String,
       default: '',

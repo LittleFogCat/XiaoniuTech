@@ -1,43 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import LanguageThemeControls from '../components/LanguageThemeControls';
+import UserAccountMenu from '../components/UserAccountMenu';
+import { useAppShell } from '../contexts/AppShellContext';
+import { isLoggedIn as hasAuthenticatedSession } from '../services/blogApi';
 import './HomePage.css';
-
-const actionLinks = [
-  { label: '进入 Chat', to: '/chat', variant: 'primary', type: 'internal' },
-  { label: '查看博客', to: '/blog', variant: 'secondary', type: 'internal' },
-  { label: 'Github', to: 'https://github.com/LittleFogCat', variant: 'ghost', type: 'external' },
-];
-
-const featureLinks = [
-  {
-    title: 'Chat Lab',
-    description: '多模型聊天与智能体入口。',
-    to: '/chat',
-    type: 'internal',
-    tag: 'Product Surface',
-  },
-  {
-    title: '技术博客',
-    description: '工程记录与实践总结。',
-    to: '/blog',
-    type: 'internal',
-    tag: 'Writing',
-  },
-  {
-    title: 'Github 仓库',
-    description: '开源项目与代码实验。',
-    to: 'https://github.com/LittleFogCat',
-    type: 'external',
-    tag: 'Codebase',
-  },
-  {
-    title: '小游戏',
-    description: '轻量交互作品。',
-    to: '/games',
-    type: 'internal',
-    tag: 'Sandbox',
-  },
-];
 
 function ActionLink({ item, children, className }) {
   if (item.type === 'internal') {
@@ -52,11 +19,43 @@ function ActionLink({ item, children, className }) {
 }
 
 export default function HomePage() {
+  const { t, theme } = useAppShell();
   const [isWechatOpen, setIsWechatOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [hasAccountSession, setHasAccountSession] = useState(() => hasAuthenticatedSession());
+  const [orbitBursts, setOrbitBursts] = useState([]);
+  const [orbitComets, setOrbitComets] = useState([]);
+  const [isSupernovaActive, setIsSupernovaActive] = useState(false);
   const popoverRef = useRef(null);
+  const burstTimersRef = useRef(new Map());
+  const cometTimersRef = useRef(new Map());
+  const supernovaTimerRef = useRef(null);
+  const hoverBurstThrottleRef = useRef(0);
 
   useEffect(() => {
-    document.title = 'Xiaoniu Tech';
+    document.title = t('common.siteName');
+  }, [t]);
+
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 18);
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const syncSession = () => setHasAccountSession(hasAuthenticatedSession());
+    syncSession();
+    window.addEventListener('focus', syncSession);
+    return () => window.removeEventListener('focus', syncSession);
+  }, []);
+
+  useEffect(() => () => {
+    burstTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    burstTimersRef.current.clear();
+    cometTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    cometTimersRef.current.clear();
+    window.clearTimeout(supernovaTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -85,18 +84,176 @@ export default function HomePage() {
     };
   }, [isWechatOpen]);
 
+  const actionLinks = [
+    { label: t('home.actionChat'), to: '/chat', variant: 'primary', type: 'internal' },
+    { label: t('home.actionBlog'), to: '/blog', variant: 'secondary', type: 'internal' },
+    { label: t('home.actionGithub'), to: 'https://github.com/LittleFogCat', variant: 'ghost', type: 'external' },
+  ];
+
+  const orbitEventDurationMs = theme === 'dark' ? 5000 : 3000;
+
+  const featureLinks = [
+    {
+      title: t('home.featureChatTitle'),
+      description: t('home.featureChatDesc'),
+      to: '/chat',
+      type: 'internal',
+      tag: t('home.featureTagProduct'),
+    },
+    {
+      title: t('home.featureBlogTitle'),
+      description: t('home.featureBlogDesc'),
+      to: '/blog',
+      type: 'internal',
+      tag: t('home.featureTagWriting'),
+    },
+    {
+      title: t('home.featureGithubTitle'),
+      description: t('home.featureGithubDesc'),
+      to: 'https://github.com/LittleFogCat',
+      type: 'external',
+      tag: t('home.featureTagCode'),
+    },
+    {
+      title: t('home.featureGamesTitle'),
+      description: t('home.featureGamesDesc'),
+      to: '/games',
+      type: 'internal',
+      tag: t('home.featureTagSandbox'),
+    },
+  ];
+
+  const statusRows = [
+    { label: t('home.statusOneLabel'), value: t('home.statusOneValue') },
+    { label: t('home.statusTwoLabel'), value: t('home.statusTwoValue') },
+  ];
+
+  const spawnOrbitBurst = (x, y) => {
+    const burstId = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const colors = ['#fde68a', '#fb923c', '#fef3c7', '#67e8f9', '#f9a8d4'];
+    const particles = Array.from({ length: 9 }, (_, index) => {
+      const angle = (Math.PI * 2 * index) / 9 + Math.random() * 0.38;
+      const distance = 18 + Math.random() * 34;
+      return {
+        id: `${burstId}_${index}`,
+        dx: Math.cos(angle) * distance,
+        dy: Math.sin(angle) * distance,
+        size: 5 + Math.random() * 5,
+        color: colors[index % colors.length],
+        duration: 560 + Math.round(Math.random() * 260),
+      };
+    });
+
+    setOrbitBursts((previous) => [...previous, { id: burstId, x, y, particles }]);
+
+    const timerId = window.setTimeout(() => {
+      setOrbitBursts((previous) => previous.filter((item) => item.id !== burstId));
+      burstTimersRef.current.delete(burstId);
+    }, 900);
+
+    burstTimersRef.current.set(burstId, timerId);
+  };
+
+  const spawnOrbitComet = (x, y) => {
+    const id = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 100;
+    const comet = {
+      id,
+      x,
+      y,
+      dx: Math.cos(angle) * distance,
+      dy: Math.sin(angle) * distance,
+      rotation: `${(angle * 180) / Math.PI}deg`,
+      length: `${92 + Math.round(Math.random() * 18)}px`,
+    };
+
+    setOrbitComets((previous) => [...previous, comet]);
+
+    const timerId = window.setTimeout(() => {
+      setOrbitComets((previous) => previous.filter((item) => item.id !== id));
+      cometTimersRef.current.delete(id);
+    }, 820);
+
+    cometTimersRef.current.set(id, timerId);
+  };
+
+  const handleOrbitCardClick = (event) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    spawnOrbitComet(event.clientX - rect.left, event.clientY - rect.top);
+  };
+
+  const handleOrbitCardKeyDown = (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    spawnOrbitComet(rect.width * 0.52, rect.height * 0.38);
+  };
+
+  const handleOrbitPointerMove = (event) => {
+    const now = Date.now();
+    if (now - hoverBurstThrottleRef.current < 96) {
+      return;
+    }
+
+    hoverBurstThrottleRef.current = now;
+    const rect = event.currentTarget.getBoundingClientRect();
+    spawnOrbitBurst(event.clientX - rect.left, event.clientY - rect.top);
+  };
+
+  const handleOrbitPointerEnter = (event) => {
+    hoverBurstThrottleRef.current = 0;
+    handleOrbitPointerMove(event);
+  };
+
+  const handleOrbitCenterClick = (event) => {
+    event.stopPropagation();
+    setIsSupernovaActive(true);
+    window.clearTimeout(supernovaTimerRef.current);
+    supernovaTimerRef.current = window.setTimeout(() => {
+      setIsSupernovaActive(false);
+    }, orbitEventDurationMs);
+  };
+
   return (
     <div className="home-page-shell">
       <div className="home-page-ambient home-page-ambient-a" />
       <div className="home-page-ambient home-page-ambient-b" />
       <div className="home-page-grid" />
 
-      <main className="home-page">
+      <header className={`home-page-header${isScrolled ? ' is-scrolled' : ''}`}>
+        <div className="home-page-header-inner">
+          <Link className="home-logo" to="/">
+            {t('home.navTitle')}
+          </Link>
+
+          <div className="home-header-actions">
+            <LanguageThemeControls />
+            {hasAccountSession ? (
+              <UserAccountMenu onLogout={() => setHasAccountSession(false)} />
+            ) : (
+              <>
+                <Link className="home-nav-button" to="/login">
+                  {t('home.navLogin')}
+                </Link>
+                <Link className="home-nav-button home-nav-button-primary" to="/login?mode=register">
+                  {t('home.navRegister')}
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <main className="home-page-main">
         <section className="hero-panel">
           <div className="hero-copy">
-            <p className="eyebrow">Product · Code · AI</p>
-            <h1>做简洁、好用、持续进化的数字产品。</h1>
-            <p className="subtitle">这里是我的项目入口与实验主页。</p>
+            <p className="hero-kicker hero-display-lock">{t('home.heroKicker')}</p>
+            <h1 className="hero-display-lock">{t('home.heroTitle')}</h1>
+            <p className="subtitle">{t('home.heroSubtitle')}</p>
 
             <div className="hero-actions">
               {actionLinks.map(item => (
@@ -107,67 +264,138 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="hero-side">
-            <div className="contact-panel" aria-label="联系方式">
-              <div className="contact-head">
-                <div className="contact-copy">
-                  <p className="contact-title">Direct Channel</p>
-                  <p className="contact-text">欢迎交流合作或想法。</p>
-                </div>
-                <span className="contact-badge">Available</span>
-              </div>
+          <div className="hero-status-panel">
+            <div className="status-panel-head">
+              <span className="status-badge">{t('home.statusTitle')}</span>
+              <span className="status-pulse" aria-hidden="true" />
+            </div>
 
-              <div className="contact-meta">
-                <span className="contact-meta-label">邮箱</span>
-                <a className="contact-meta-value" href="mailto:littlefogcat@foxmail.com">
-                  littlefogcat@foxmail.com
-                </a>
-              </div>
-
-              <div className="contact-list">
-                <a className="contact-chip" href="mailto:littlefogcat@foxmail.com" aria-label="Mail: littlefogcat@foxmail.com" title="Mail: littlefogcat@foxmail.com">
-                  <img className="contact-icon" src="/image/mail.svg" alt="" />
-                  <span className="contact-chip-text">Email</span>
-                </a>
-                <a className="contact-chip qq-chip" href="tencent://message/?uin=475108923" aria-label="QQ: 475108923" title="QQ: 475108923">
-                  <img className="contact-icon contact-icon-qq" src="/image/qq.svg" alt="" />
-                  <span className="contact-chip-text">QQ</span>
-                </a>
-                <div ref={popoverRef} className="wechat-popover-wrap">
-                  <button
-                    className="contact-chip contact-chip-button"
-                    type="button"
-                    aria-label="微信号: lgfpbwqlbwbxnll"
-                    aria-expanded={isWechatOpen}
-                    title="微信号: lgfpbwqlbwbxnll"
-                    onClick={() => setIsWechatOpen(open => !open)}
-                  >
-                    <img className="contact-icon" src="/image/wechat.svg" alt="" />
-                    <span className="contact-chip-text">微信</span>
-                  </button>
-                  <div className={`wechat-popover${isWechatOpen ? ' is-open' : ''}`} aria-hidden={!isWechatOpen}>
-                    <img src="/image/wechat_add.jpg" alt="微信添加二维码" />
-                  </div>
+            <div className="status-list">
+              {statusRows.map(item => (
+                <div key={item.label} className="status-row">
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
                 </div>
+              ))}
+            </div>
+
+            <div
+              className={`hero-orbit-card${isSupernovaActive ? ' is-supernova' : ''}`}
+              role="button"
+              tabIndex={0}
+              aria-label={t('home.orbitCardHint')}
+              onClick={handleOrbitCardClick}
+              onKeyDown={handleOrbitCardKeyDown}
+              onPointerEnter={handleOrbitPointerEnter}
+              onPointerMove={handleOrbitPointerMove}
+            >
+              <div className="hero-orbit-grid" />
+              <div className="hero-orbit-aura" />
+              <div className="hero-orbit-supernova" />
+              <div className="hero-orbit-ring hero-orbit-ring-a" />
+              <div className="hero-orbit-ring hero-orbit-ring-b" />
+              <div className="hero-orbit-orbiter hero-orbit-orbiter-a">
+                <div className="hero-orbit-dot hero-orbit-dot-a" />
               </div>
+              <div className="hero-orbit-orbiter hero-orbit-orbiter-b">
+                <div className="hero-orbit-dot hero-orbit-dot-b" />
+              </div>
+              <div className="hero-orbit-orbiter hero-orbit-orbiter-c">
+                <div className="hero-orbit-dot hero-orbit-dot-c" />
+              </div>
+              <button
+                type="button"
+                className="hero-orbit-center"
+                onClick={handleOrbitCenterClick}
+                title={t('home.orbitSunTitle')}
+                aria-label={t('home.orbitSunTitle')}
+              >
+                <span className="hero-orbit-core" />
+              </button>
+              {orbitBursts.map((burst) => (
+                <span
+                  key={burst.id}
+                  className="hero-orbit-burst"
+                  style={{
+                    '--burst-x': `${burst.x}px`,
+                    '--burst-y': `${burst.y}px`,
+                  }}
+                >
+                  {burst.particles.map((particle) => (
+                    <span
+                      key={particle.id}
+                      className="hero-orbit-particle"
+                      style={{
+                        '--particle-dx': `${particle.dx}px`,
+                        '--particle-dy': `${particle.dy}px`,
+                        '--particle-size': `${particle.size}px`,
+                        '--particle-color': particle.color,
+                        '--particle-duration': `${particle.duration}ms`,
+                      }}
+                    />
+                  ))}
+                </span>
+              ))}
+              {orbitComets.map(comet => (
+                <span
+                  key={comet.id}
+                  className="hero-orbit-comet"
+                  style={{
+                    '--comet-x': `${comet.x}px`,
+                    '--comet-y': `${comet.y}px`,
+                    '--comet-dx': `${comet.dx}px`,
+                    '--comet-dy': `${comet.dy}px`,
+                    '--comet-rotate': comet.rotation,
+                    '--comet-length': comet.length,
+                  }}
+                />
+              ))}
             </div>
           </div>
         </section>
 
-        <section className="surface-grid" aria-label="站点入口">
+        <section className="surface-grid" aria-label={t('home.navTitle')}>
           {featureLinks.map(item => (
             <ActionLink key={item.title} item={item} className="link-card">
               <span className="link-tag">{item.tag}</span>
               <h2>{item.title}</h2>
               <p>{item.description}</p>
-              <span className="link-arrow">Open</span>
+              <span className="link-arrow">{t('home.open')}</span>
             </ActionLink>
           ))}
         </section>
       </main>
 
       <footer className="site-footer">
-        <p>Built by LittleFogCat</p>
+        <p>{t('home.footerBuiltBy')}</p>
+        <div className="footer-contact-row">
+          <a className="footer-icon-link" href="mailto:littlefogcat@foxmail.com" aria-label={t('home.footerEmail')} title={t('home.footerEmail')}>
+            <img className="contact-icon" src="/image/mail.svg" alt="" />
+          </a>
+          <a className="footer-icon-link" href="https://github.com/LittleFogCat" target="_blank" rel="noopener noreferrer" aria-label={t('home.footerGithub')} title={t('home.footerGithub')}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.866-.013-1.699-2.782.605-3.369-1.343-3.369-1.343-.454-1.156-1.11-1.465-1.11-1.465-.908-.62.069-.608.069-.608 1.003.07 1.531 1.031 1.531 1.031.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.748-1.026 2.748-1.026.546 1.378.203 2.397.1 2.65.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.31.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.481A10.02 10.02 0 0 0 22 12.017C22 6.484 17.523 2 12 2z" />
+            </svg>
+          </a>
+          <a className="footer-icon-link" href="tencent://message/?uin=475108923" aria-label={t('home.footerQQ')} title={t('home.footerQQ')}>
+            <img className="contact-icon contact-icon-qq" src="/image/qq.svg" alt="" />
+          </a>
+          <div ref={popoverRef} className="wechat-popover-wrap">
+            <button
+              className="footer-icon-link footer-icon-button"
+              type="button"
+              aria-label={t('home.footerWechat')}
+              aria-expanded={isWechatOpen}
+              title={t('home.footerWechat')}
+              onClick={() => setIsWechatOpen(open => !open)}
+            >
+              <img className="contact-icon" src="/image/wechat.svg" alt="" />
+            </button>
+            <div className={`wechat-popover${isWechatOpen ? ' is-open' : ''}`} aria-hidden={!isWechatOpen}>
+              <img src="/image/wechat_add.jpg" alt={t('home.footerWechatQrAlt')} />
+            </div>
+          </div>
+        </div>
       </footer>
     </div>
   );

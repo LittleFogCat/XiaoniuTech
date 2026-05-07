@@ -3,14 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom';
 import BlogHeader from '../components/BlogHeader';
 import BlogSidebar from '../components/BlogSidebar';
 import { fetchPosts, isLoggedIn } from '../services/blogApi';
-
-function formatDate(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
-}
+import { useAppShell } from '../contexts/AppShellContext';
 
 export default function BlogListPage() {
+  const { t, formatDate, formatNumber } = useAppShell();
   const [searchParams, setSearchParams] = useSearchParams();
   const [posts, setPosts] = useState([]);
   const [total, setTotal] = useState(0);
@@ -21,8 +17,8 @@ export default function BlogListPage() {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    document.title = 'XN Blog';
-  }, []);
+    document.title = t('blog.pageTitle');
+  }, [t]);
 
   useEffect(() => {
     setLoading(true);
@@ -57,27 +53,27 @@ export default function BlogListPage() {
   );
 
   return (
-    <div className="min-h-screen" style={{ background: '#050816' }}>
+    <div className="min-h-screen bg-[var(--page-bg)] text-[color:var(--text-primary)]">
       <BlogHeader onSearch={handleSearch} />
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
           <div className="min-w-0 flex-1">
             {tag && (
-              <div className="mb-4 text-sm text-slate-400">
-                标签：<span className="text-sky-300">{tag}</span>
+              <div className="mb-4 text-sm text-[color:var(--text-muted)]">
+                {t('blog.tagFilter')} <span className="text-[color:var(--accent-solid)]">{tag}</span>
                 {' '}
-                <button onClick={() => setSearchParams({})} className="text-slate-500 underline transition hover:text-slate-300">
-                  清除
+                <button onClick={() => setSearchParams({})} className="text-[color:var(--text-faint)] underline transition hover:text-[color:var(--text-primary)]">
+                  {t('common.clear')}
                 </button>
               </div>
             )}
 
             {loading ? (
-              <div className="py-12 text-center text-slate-500">加载中...</div>
+              <div className="py-12 text-center text-[color:var(--text-faint)]">{t('common.loading')}</div>
             ) : posts.length === 0 ? (
-              <div className="py-12 text-center text-slate-500">
-                {search ? '未找到匹配的文章' : '暂无文章'}
+              <div className="py-12 text-center text-[color:var(--text-faint)]">
+                {search ? t('blog.noMatchedPosts') : t('blog.noPosts')}
               </div>
             ) : (
               <div className="flex flex-col gap-4">
@@ -85,32 +81,32 @@ export default function BlogListPage() {
                   <Link
                     key={post._id}
                     to={`/blog/post/${post.slug}`}
-                    className="block rounded-2xl border border-slate-700/50 bg-[rgba(15,23,42,0.5)] p-5 backdrop-blur-sm transition hover:border-sky-500/30 sm:p-6"
+                    className="block rounded-2xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] p-5 backdrop-blur-sm transition hover:border-[color:var(--accent-border)] sm:p-6"
                   >
                     <div className="flex items-start gap-2">
                       <h2
-                        className="text-lg font-semibold text-white transition group-hover:text-sky-200 sm:text-xl"
+                        className="text-lg font-semibold text-[color:var(--text-primary)] transition group-hover:text-[color:var(--accent-solid)] sm:text-xl"
                         style={{ fontFamily: "'Space Grotesk', 'Noto Sans SC', sans-serif" }}
                       >
                         {post.title}
                       </h2>
                       {!post.published && (
-                        <span className="shrink-0 rounded bg-green-600/80 px-1.5 py-0.5 text-[11px] font-medium text-white">草稿</span>
+                        <span className="shrink-0 rounded bg-[var(--success-text)] px-1.5 py-0.5 text-[11px] font-medium text-white">{t('common.draft')}</span>
                       )}
                     </div>
                     {post.excerpt && (
-                      <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-400">{post.excerpt}</p>
+                      <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[color:var(--text-muted)]">{post.excerpt}</p>
                     )}
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <span className="text-xs text-slate-500">{formatDate(post.publishedAt)}</span>
+                      <span className="text-xs text-[color:var(--text-faint)]">{formatDate(post.publishedAt)}</span>
                       {post.tags.map((t) => (
-                        <span key={t} className="rounded-md border border-slate-600/40 bg-slate-800/40 px-2 py-0.5 text-[11px] text-slate-400">
+                        <span key={t} className="rounded-md border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] px-2 py-0.5 text-[11px] text-[color:var(--text-muted)]">
                           {t}
                         </span>
                       ))}
-                      <span className="text-xs text-slate-600">{post.viewCount} 阅读</span>
-                      <span className="text-xs text-slate-600">{post.likes || 0} 赞</span>
-                      <span className="text-xs text-slate-600">{post.commentCount || 0} 评论</span>
+                      <span className="text-xs text-[color:var(--text-faint)]">{t('blog.readCount', { count: formatNumber(post.viewCount) })}</span>
+                      <span className="text-xs text-[color:var(--text-faint)]">{t('blog.likeCount', { count: formatNumber(post.likes || 0) })}</span>
+                      <span className="text-xs text-[color:var(--text-faint)]">{t('blog.commentCount', { count: formatNumber(post.commentCount || 0) })}</span>
                     </div>
                   </Link>
                 ))}
@@ -122,17 +118,17 @@ export default function BlogListPage() {
                 <button
                   disabled={page <= 1}
                   onClick={() => handlePageChange(page - 1)}
-                  className="rounded-lg border border-slate-600/60 bg-slate-800/40 px-3 py-1.5 text-xs text-slate-200 transition hover:border-slate-500/80 disabled:opacity-40 sm:text-sm"
+                  className="rounded-lg border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-3 py-1.5 text-xs text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-40 sm:text-sm"
                 >
-                  上一页
+                  {t('common.previousPage')}
                 </button>
-                <span className="text-xs text-slate-400">{page} / {totalPages}</span>
+                <span className="text-xs text-[color:var(--text-muted)]">{page} / {totalPages}</span>
                 <button
                   disabled={page >= totalPages}
                   onClick={() => handlePageChange(page + 1)}
-                  className="rounded-lg border border-slate-600/60 bg-slate-800/40 px-3 py-1.5 text-xs text-slate-200 transition hover:border-slate-500/80 disabled:opacity-40 sm:text-sm"
+                  className="rounded-lg border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-3 py-1.5 text-xs text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-40 sm:text-sm"
                 >
-                  下一页
+                  {t('common.nextPage')}
                 </button>
               </div>
             )}

@@ -13,6 +13,7 @@ function normalizeIdentityDoc(doc) {
   return {
     id: doc._id.toString(),
     name: doc.name,
+    role: doc.role || '',
     description: doc.description || '',
     avatarUrl: doc.avatarUrl || '',
     personaDefinition: doc.personaDefinition,
@@ -51,6 +52,7 @@ export async function initializeIdentityCatalog() {
           $setOnInsert: {
             _id: identity.id,
             name: identity.name,
+            role: identity.role || '',
             description: identity.description,
             avatarUrl: identity.avatarUrl,
             personaDefinition: identity.personaDefinition,
@@ -62,6 +64,40 @@ export async function initializeIdentityCatalog() {
       );
 
       createdCount += result.upsertedCount || 0;
+
+      if (identity.role) {
+        await Identity.updateOne(
+          {
+            _id: identity.id,
+            source: 'seed',
+            $or: [
+              { role: { $exists: false } },
+              { role: '' },
+              { role: null },
+            ],
+          },
+          {
+            $set: {
+              role: identity.role,
+            },
+          }
+        );
+      }
+
+      if (identity.name && identity.name !== identity.id) {
+        await Identity.updateOne(
+          {
+            _id: identity.id,
+            source: 'seed',
+            name: identity.id,
+          },
+          {
+            $set: {
+              name: identity.name,
+            },
+          }
+        );
+      }
     } catch (error) {
       if (existingCount > 0 && isDuplicateKeyError(error)) {
         console.warn(`[identity:init] Seed skipped for ${identity.id}: ${error.message}`);

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchTags, fetchStats } from '../services/blogApi';
+import { useAppShell } from '../contexts/AppShellContext';
 
 export default function BlogSidebar() {
+  const { t, formatNumber } = useAppShell();
   const [tags, setTags] = useState([]);
   const [stats, setStats] = useState({ totalPosts: 0, totalWords: 0 });
 
@@ -13,32 +15,32 @@ export default function BlogSidebar() {
 
   return (
     <aside className="flex flex-col gap-6">
-      <div className="rounded-2xl border border-slate-700/50 bg-[rgba(15,23,42,0.6)] p-5 backdrop-blur-sm">
-        <div className="mb-4 text-sm font-semibold text-white" style={{ fontFamily: "'Space Grotesk', 'Noto Sans SC', sans-serif" }}>
+      <div className="rounded-2xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] p-5 backdrop-blur-sm">
+        <div className="mb-4 text-sm font-semibold text-[color:var(--text-primary)]" style={{ fontFamily: "'Space Grotesk', 'Noto Sans SC', sans-serif" }}>
           XiaoNiu
         </div>
-        <p className="text-xs leading-relaxed text-slate-400 sm:text-sm">
-          全栈开发者，专注于 Web 技术与 AI 应用。
+        <p className="text-xs leading-relaxed text-[color:var(--text-muted)] sm:text-sm">
+          {t('blog.sidebarIntro')}
         </p>
-        <div className="mt-4 flex gap-4 text-xs text-slate-400">
+        <div className="mt-4 flex gap-4 text-xs text-[color:var(--text-muted)]">
           <div>
-            <span className="block text-base font-semibold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-              {stats.totalPosts}
+            <span className="block text-base font-semibold text-[color:var(--text-primary)]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+              {formatNumber(stats.totalPosts)}
             </span>
-            <span>文章</span>
+            <span>{t('common.articles')}</span>
           </div>
           <div>
-            <span className="block text-base font-semibold text-white" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-              {stats.totalWords.toLocaleString()}
+            <span className="block text-base font-semibold text-[color:var(--text-primary)]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+              {formatNumber(stats.totalWords)}
             </span>
-            <span>总字数</span>
+            <span>{t('blog.totalWords')}</span>
           </div>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-700/50 bg-[rgba(15,23,42,0.6)] p-5 backdrop-blur-sm">
-        <h3 className="mb-3 text-sm font-semibold text-white" style={{ fontFamily: "'Space Grotesk', 'Noto Sans SC', sans-serif" }}>
-          标签合集
+      <div className="rounded-2xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] p-5 backdrop-blur-sm">
+        <h3 className="mb-3 text-sm font-semibold text-[color:var(--text-primary)]" style={{ fontFamily: "'Space Grotesk', 'Noto Sans SC', sans-serif" }}>
+          {t('blog.tagCollection')}
         </h3>
         {tags.length > 0 ? (
           <div className="flex flex-wrap gap-2">
@@ -46,15 +48,15 @@ export default function BlogSidebar() {
               <Link
                 key={tag.name}
                 to={`/blog?tag=${encodeURIComponent(tag.name)}`}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-600/40 bg-slate-800/40 px-2.5 py-1 text-xs text-slate-300 transition hover:border-sky-500/40 hover:text-sky-200"
+                className="inline-flex items-center gap-1 rounded-lg border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] px-2.5 py-1 text-xs text-[color:var(--text-secondary)] transition hover:border-[color:var(--accent-border)] hover:text-[color:var(--text-primary)]"
               >
                 {tag.name}
-                <span className="text-slate-500">{tag.count}</span>
+                <span className="text-[color:var(--text-faint)]">{formatNumber(tag.count)}</span>
               </Link>
             ))}
           </div>
         ) : (
-          <p className="text-xs text-slate-500">暂无标签</p>
+          <p className="text-xs text-[color:var(--text-faint)]">{t('blog.noTags')}</p>
         )}
       </div>
     </aside>

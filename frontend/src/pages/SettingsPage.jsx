@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import AvatarUpload from '../components/AvatarUpload';
 import { fetchUserProfile, updateUserProfile, isLoggedIn, getUsernameFromToken } from '../services/blogApi';
+import { useAppShell } from '../contexts/AppShellContext';
 
 const LOG_PREFIX = '[SettingsPage]';
 
 export default function SettingsPage() {
+  const { t } = useAppShell();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -19,10 +21,11 @@ export default function SettingsPage() {
   });
   const [avatarFileId, setAvatarFileId] = useState(null);
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
   useEffect(() => {
     console.log(LOG_PREFIX, 'page mounted');
-    document.title = '用户设置 - XN Blog';
+    document.title = t('settings.pageTitle');
     if (!isLoggedIn()) {
       console.log(LOG_PREFIX, 'not logged in, redirecting to chat');
       navigate('/chat', { replace: true });
@@ -44,10 +47,10 @@ export default function SettingsPage() {
       })
       .catch((err) => {
         console.error(LOG_PREFIX, 'failed to load profile:', err);
-        setMessage({ type: 'error', text: '加载用户信息失败' });
+        setMessage({ type: 'error', text: t('settings.profileLoadingFailed') });
       })
       .finally(() => setLoading(false));
-  }, [navigate]);
+  }, [navigate, t]);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -63,11 +66,11 @@ export default function SettingsPage() {
       console.log(LOG_PREFIX, 'persisting avatar to profile');
       await updateUserProfile({ avatarFileId: fileId });
       console.log(LOG_PREFIX, 'avatar persisted successfully');
-      setMessage({ type: 'success', text: '头像已更新' });
+      setMessage({ type: 'success', text: t('settings.avatarUpdated') });
       setTimeout(() => setMessage(null), 3000);
     } catch (err) {
       console.error(LOG_PREFIX, 'failed to persist avatar:', err);
-      setMessage({ type: 'error', text: '头像保存失败：' + err.message });
+      setMessage({ type: 'error', text: t('settings.avatarSaveFailed', { message: err.message }) });
     }
   }
 
@@ -86,7 +89,7 @@ export default function SettingsPage() {
 
       if (form.newPassword) {
         if (!form.currentPassword) {
-          setMessage({ type: 'error', text: '修改密码需要输入当前密码' });
+          setMessage({ type: 'error', text: t('settings.currentPasswordRequired') });
           setSaving(false);
           return;
         }
@@ -98,8 +101,8 @@ export default function SettingsPage() {
       const result = await updateUserProfile(data);
       console.log(LOG_PREFIX, 'save result:', result);
       setForm((prev) => ({ ...prev, currentPassword: '', newPassword: '' }));
-      setMessage({ type: 'success', text: '保存成功' });
-      setTimeout(() => setMessage(null), 3000);
+      setMessage(null);
+      setShowSuccessDialog(true);
     } catch (err) {
       console.error(LOG_PREFIX, 'save failed:', err);
       setMessage({ type: 'error', text: err.message });
@@ -108,26 +111,31 @@ export default function SettingsPage() {
     }
   }
 
-  const inputClass = "w-full rounded-xl border border-slate-600/60 bg-slate-800/50 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 outline-none transition focus:border-sky-500/50 sm:text-base";
-  const labelClass = "mb-1.5 block text-sm font-medium text-slate-300";
+  const inputClass = 'w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[color:var(--text-primary)] placeholder:text-[color:var(--text-faint)] outline-none transition focus:border-[color:var(--accent-border)] sm:text-base';
+  const labelClass = 'mb-1.5 block text-sm font-medium text-[color:var(--text-secondary)]';
+
+  function handleCloseSuccessDialog() {
+    setShowSuccessDialog(false);
+    navigate(-1);
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#050816' }}>
-        <p className="text-slate-500">加载中...</p>
+      <div className="flex min-h-screen items-center justify-center bg-[var(--page-bg)]">
+        <p className="text-[color:var(--text-muted)]">{t('common.loading')}</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen" style={{ background: '#050816' }}>
-      <header className="sticky top-0 z-30 border-b border-slate-700/60 bg-[linear-gradient(180deg,rgba(8,10,22,0.94),rgba(5,8,22,0.92))] backdrop-blur-lg">
+    <div className="min-h-screen bg-[var(--page-bg)] text-[color:var(--text-primary)]">
+      <header className="sticky top-0 z-30 border-b border-[color:var(--surface-border)] bg-[var(--header-bg)] backdrop-blur-lg">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3 sm:px-6 sm:py-4">
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-600/70 bg-slate-800/35 text-slate-100 transition hover:border-slate-500/80 hover:bg-slate-700/55"
-            title="返回前页"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+            title={t('settings.backPrevious')}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="19" y1="12" x2="5" y2="12" />
@@ -135,10 +143,10 @@ export default function SettingsPage() {
             </svg>
           </button>
           <h1
-            className="text-lg font-bold text-white sm:text-xl"
+            className="text-lg font-bold text-[color:var(--text-primary)] sm:text-xl"
             style={{ fontFamily: "'Space Grotesk', 'Noto Sans SC', sans-serif" }}
           >
-            用户设置
+            {t('settings.title')}
           </h1>
         </div>
       </header>
@@ -149,8 +157,8 @@ export default function SettingsPage() {
             <div
               className={`rounded-xl border px-4 py-3 text-sm ${
                 message.type === 'success'
-                  ? 'border-green-500/30 bg-green-500/10 text-green-200'
-                  : 'border-red-500/30 bg-red-500/10 text-red-200'
+                  ? 'border-[color:var(--success-border)] bg-[var(--success-soft)] text-[color:var(--success-text)]'
+                  : 'border-[color:var(--danger-border)] bg-[var(--danger-soft)] text-[color:var(--danger-text)]'
               }`}
             >
               {message.text}
@@ -158,75 +166,75 @@ export default function SettingsPage() {
           )}
 
           <div>
-            <label className={labelClass}>头像</label>
+            <label className={labelClass}>{t('settings.avatar')}</label>
             <AvatarUpload currentUrl={avatarUrl} username={getUsernameFromToken() || form.email} onUploaded={handleAvatarUploaded} />
           </div>
 
           <div>
-            <label className={labelClass} htmlFor="email">邮箱</label>
+            <label className={labelClass} htmlFor="email">{t('common.email')}</label>
             <input
               id="email"
               type="email"
               value={form.email}
               disabled
-              className={`${inputClass} opacity-50 cursor-not-allowed`}
+              className={`${inputClass} cursor-not-allowed opacity-50`}
             />
-            <p className="mt-1 text-xs text-slate-500">邮箱不可更改</p>
+            <p className="mt-1 text-xs text-[color:var(--text-faint)]">{t('settings.emailReadonly')}</p>
           </div>
 
           <div>
-            <label className={labelClass} htmlFor="nickname">昵称</label>
+            <label className={labelClass} htmlFor="nickname">{t('common.nickname')}</label>
             <input
               id="nickname"
               name="nickname"
               type="text"
               value={form.nickname}
               onChange={handleChange}
-              placeholder="设置昵称"
+              placeholder={t('settings.nicknamePlaceholder')}
               maxLength={32}
               className={inputClass}
             />
           </div>
 
           <div>
-            <label className={labelClass} htmlFor="bio">简介</label>
+            <label className={labelClass} htmlFor="bio">{t('common.bio')}</label>
             <textarea
               id="bio"
               name="bio"
               value={form.bio}
               onChange={handleChange}
-              placeholder="写一段个人简介..."
+              placeholder={t('settings.bioPlaceholder')}
               maxLength={200}
               rows={3}
               className={`${inputClass} resize-none`}
             />
-            <p className="mt-1 text-xs text-slate-500">{form.bio.length}/200</p>
+            <p className="mt-1 text-xs text-[color:var(--text-faint)]">{form.bio.length}/200</p>
           </div>
 
-          <hr className="border-slate-700/60" />
+          <hr className="border-[color:var(--surface-border)]" />
 
           <div>
-            <label className={labelClass} htmlFor="currentPassword">当前密码</label>
+            <label className={labelClass} htmlFor="currentPassword">{t('common.password')}</label>
             <input
               id="currentPassword"
               name="currentPassword"
               type="password"
               value={form.currentPassword}
               onChange={handleChange}
-              placeholder="如需修改密码，请输入当前密码"
+              placeholder={t('settings.currentPasswordPlaceholder')}
               className={inputClass}
             />
           </div>
 
           <div>
-            <label className={labelClass} htmlFor="newPassword">新密码</label>
+            <label className={labelClass} htmlFor="newPassword">{t('settings.newPasswordPlaceholder')}</label>
             <input
               id="newPassword"
               name="newPassword"
               type="password"
               value={form.newPassword}
               onChange={handleChange}
-              placeholder="输入新密码（至少 8 位字符）"
+              placeholder={t('settings.newPasswordPlaceholder')}
               minLength={8}
               maxLength={128}
               className={inputClass}
@@ -237,19 +245,41 @@ export default function SettingsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-6 py-2.5 text-sm text-sky-100 transition hover:border-sky-400/50 hover:bg-sky-500/20 disabled:opacity-40"
+              className="rounded-xl border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-6 py-2.5 text-sm text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-40"
             >
-              {saving ? '保存中...' : '保存'}
+              {saving ? t('settings.saving') : t('common.save')}
             </button>
-            <Link
-              to="/blog"
-              className="rounded-xl border border-slate-600/60 bg-slate-800/40 px-4 py-2.5 text-sm text-slate-300 transition hover:border-slate-500/80"
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-4 py-2.5 text-sm text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
             >
-              取消
-            </Link>
+              {t('common.cancel')}
+            </button>
           </div>
         </form>
       </main>
+
+      {showSuccessDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCloseSuccessDialog} />
+          <div className="relative z-10 w-full max-w-sm rounded-2xl border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] p-6 shadow-[var(--surface-shadow)]">
+            <h2 className="text-lg font-semibold text-[color:var(--text-primary)]" style={{ fontFamily: "'Space Grotesk', 'Noto Sans SC', sans-serif" }}>
+              {t('settings.saveSuccess')}
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)]">
+              {t('settings.saveSuccessHint')}
+            </p>
+            <button
+              type="button"
+              onClick={handleCloseSuccessDialog}
+              className="mt-5 w-full rounded-xl border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-4 py-2.5 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+            >
+              {t('common.close')}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -50,6 +50,8 @@ function buildHeaders(provider, providerConfig) {
   const authHeader = providerConfig.authHeader ?? true;
   const apiKey = providerConfig.apiKey;
 
+  console.log('providerConfig', providerConfig);
+  console.log('provider', provider);
   if (authHeader && !apiKey) {
     throw new Error(`Missing API key for provider ${provider}. Check the apiKey field in models.json.`);
   }

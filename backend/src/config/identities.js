@@ -7,6 +7,8 @@ const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 const BACKEND_ROOT = path.resolve(__dirname, '../..');
 const BACKEND_CONFIG_DIR = '/app/config';
+const IDENTITIES_JSON_FILE = 'identities.json';
+const PERSONA_DIR_NAME = 'persona';
 
 const SECTION_ALIASES = {
   name: ['名称', 'name'],
@@ -47,6 +49,27 @@ function resolveExistingIdentitiesDir() {
   return configuredDir;
 }
 
+function resolveIdentityConfigFiles(identitiesDir) {
+  return {
+    identitiesDir,
+    catalogPath: path.join(identitiesDir, IDENTITIES_JSON_FILE),
+    personaDir: path.join(identitiesDir, PERSONA_DIR_NAME),
+  };
+}
+
+function ensureMarkdownExtension(fileName = '') {
+  const trimmed = String(fileName).trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  return path.extname(trimmed) ? trimmed : `${trimmed}.md`;
+}
+
+function readMarkdownFile(filePath) {
+  return fs.readFileSync(filePath, 'utf-8').trim();
+}
+
 function extractSections(markdown = '') {
   const headingRegex = /^#{1,6}\s*(.+?)\s*$/gm;
   const matches = [...markdown.matchAll(headingRegex)];
@@ -81,11 +104,12 @@ function pickSection(sections, aliases) {
   return '';
 }
 
-function parseIdentityFile(filePath) {
-  const markdown = fs.readFileSync(filePath, 'utf-8');
+function parseLegacyIdentityFile(filePath) {
+  const markdown = readMarkdownFile(filePath);
   const sections = extractSections(markdown);
   const fallbackId = path.parse(filePath).name;
   const name = pickSection(sections, SECTION_ALIASES.name) || fallbackId;
+  const role = '';
   const description = pickSection(sections, SECTION_ALIASES.description);
   const avatarUrl = pickSection(sections, SECTION_ALIASES.avatarUrl);
   const personaDefinition = pickSection(sections, SECTION_ALIASES.personaDefinition) || markdown.trim();
@@ -97,11 +121,125 @@ function parseIdentityFile(filePath) {
   return {
     id: fallbackId,
     name: name.trim(),
+    role,
     description: description.trim(),
     avatarUrl: avatarUrl.trim(),
     personaDefinition: personaDefinition.trim(),
     seedFile: path.basename(filePath),
   };
+}
+
+function readPersonaDefinition(filePath) {
+  const markdown = readMarkdownFile(filePath);
+  if (!markdown) {
+    throw new Error(`Identity persona file ${path.basename(filePath)} is empty`);
+  }
+
+  const isPersonaFile = path.basename(path.dirname(filePath)) === PERSONA_DIR_NAME;
+  if (isPersonaFile) {
+    return markdown;
+  }
+
+  const sections = extractSections(markdown);
+  return pickSection(sections, SECTION_ALIASES.personaDefinition) || markdown;
+}
+
+function resolvePersonaCandidatePaths(entry, configFiles) {
+  const candidates = [];
+  const seen = new Set();
+
+  const addCandidate = (baseDir, value) => {
+    const resolvedName = ensureMarkdownExtension(value);
+    if (!resolvedName) {
+      return;
+    }
+
+    const resolvedPath = path.isAbsolute(resolvedName)
+      ? resolvedName
+      : path.join(baseDir, resolvedName);
+    const normalizedPath = path.normalize(resolvedPath);
+    if (!seen.has(normalizedPath)) {
+      seen.add(normalizedPath);
+      candidates.push(resolvedPath);
+    }
+  };
+
+  const personaRef = typeof entry.persona === 'string' ? entry.persona.trim() : '';
+  const id = typeof entry.id === 'string' ? entry.id.trim() : '';
+
+  addCandidate(configFiles.personaDir, personaRef);
+  addCandidate(configFiles.identitiesDir, personaRef);
+
+  if (id && id !== personaRef) {
+    addCandidate(configFiles.personaDir, id);
+    addCandidate(configFiles.identitiesDir, id);
+  }
+
+  return candidates;
+}
+
+function parseJsonIdentityEntry(entry, configFiles) {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    throw new Error('Each identity entry in identities.json must be an object');
+  }
+
+  const fallbackId = String(entry.id || entry.persona || entry.name || '').trim();
+  if (!fallbackId) {
+    throw new Error('Identity entry is missing id/name/persona');
+  }
+
+  const id = fallbackId;
+  const name = String(entry.name || id).trim();
+  const role = String(entry.role || '').trim();
+  const description = String(entry.description ?? entry.desc ?? '').trim();
+  const avatarUrl = String(entry.avatarUrl ?? entry.avatar ?? '').trim();
+  const personaPath = resolvePersonaCandidatePaths(entry, configFiles).find(candidate => fs.existsSync(candidate));
+
+  if (!personaPath) {
+    throw new Error(`Identity ${id} persona file not found`);
+  }
+
+  const personaDefinition = readPersonaDefinition(personaPath).trim();
+  if (!personaDefinition) {
+    throw new Error(`Identity ${id} is missing persona definition`);
+  }
+
+  return {
+    id,
+    name,
+    role,
+    description,
+    avatarUrl,
+    personaDefinition,
+    seedFile: path.relative(configFiles.identitiesDir, personaPath).replace(/\\/g, '/'),
+  };
+}
+
+function loadSeedIdentitiesFromJson(configFiles) {
+  if (!fs.existsSync(configFiles.catalogPath)) {
+    return null;
+  }
+
+  const raw = fs.readFileSync(configFiles.catalogPath, 'utf-8').trim();
+  if (!raw) {
+    return [];
+  }
+
+  const parsed = JSON.parse(raw);
+  if (!Array.isArray(parsed)) {
+    throw new Error('identities.json must export an array of identity entries');
+  }
+
+  return parsed
+    .map(entry => parseJsonIdentityEntry(entry, configFiles))
+    .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
+}
+
+function loadSeedIdentitiesFromLegacyMarkdown(identitiesDir) {
+  return fs.readdirSync(identitiesDir, { withFileTypes: true })
+    .filter(entry => entry.isFile() && /\.md$/i.test(entry.name))
+    .map(entry => parseLegacyIdentityFile(path.join(identitiesDir, entry.name)))
+    .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
 }
 
 function assertUniqueIdentityNames(identities) {
@@ -120,6 +258,7 @@ export function toPublicIdentity(identity) {
   return {
     id,
     name: identity.name,
+    role: identity.role || '',
     description: identity.description,
     avatarUrl: identity.avatarUrl,
   };
@@ -131,10 +270,8 @@ export function loadSeedIdentities() {
     return [];
   }
 
-  const identities = fs.readdirSync(identitiesDir, { withFileTypes: true })
-    .filter(entry => entry.isFile() && /\.md$/i.test(entry.name))
-    .map(entry => parseIdentityFile(path.join(identitiesDir, entry.name)))
-    .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
+  const configFiles = resolveIdentityConfigFiles(identitiesDir);
+  const identities = loadSeedIdentitiesFromJson(configFiles) ?? loadSeedIdentitiesFromLegacyMarkdown(identitiesDir);
 
   assertUniqueIdentityNames(identities);
   return identities;
