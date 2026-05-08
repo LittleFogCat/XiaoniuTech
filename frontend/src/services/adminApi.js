@@ -183,6 +183,17 @@ export async function deleteChatManagementModel(modelId) {
   return res.json();
 }
 
+export async function copyChatManagementModel(modelId) {
+  const res = await fetch(`${API_BASE}/chat/management/models/${encodeURIComponent(modelId)}/copy`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    await throwRequestError(res, 'Failed to copy chat management model');
+  }
+  return res.json();
+}
+
 export async function fetchChatManagementAgents() {
   const res = await fetch(`${API_BASE}/chat/management/agents`, {
     headers: getAuthHeaders(),

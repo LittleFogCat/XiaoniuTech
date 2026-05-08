@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requirePermission } from '../middleware/auth.js';
 import { deleteAgent, listManageAgents, upsertAgent } from '../services/agentStore.js';
-import { deleteChatModel, listManageChatModels, upsertChatModel } from '../services/modelStore.js';
+import { copyChatModel, deleteChatModel, listManageChatModels, upsertChatModel } from '../services/modelStore.js';
 
 const router = Router();
 
@@ -28,6 +28,14 @@ router.post('/chat/management/models', requirePermission('chat:manage_model'), a
 router.put('/chat/management/models/*', requirePermission('chat:manage_model'), async (req, res) => {
   try {
     res.json({ model: await upsertChatModel(req.body || {}, req.params[0]) });
+  } catch (error) {
+    res.status(getStatusCode(error)).json({ error: error.message });
+  }
+});
+
+router.post('/chat/management/models/*/copy', requirePermission('chat:manage_model'), async (req, res) => {
+  try {
+    res.status(201).json({ model: await copyChatModel(req.params[0]) });
   } catch (error) {
     res.status(getStatusCode(error)).json({ error: error.message });
   }

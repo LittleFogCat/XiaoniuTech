@@ -115,22 +115,22 @@ export async function initializeModelCatalog() {
 }
 
 export async function listPublicChatModels() {
-  const docs = await ChatModel.find({}).sort({ provider: 1, name: 1 }).lean();
+  const docs = await ChatModel.find({ deleted: { $ne: true } }).sort({ provider: 1, name: 1 }).lean();
   return docs.map(normalizePublicModel);
 }
 
 export async function listManageChatModels() {
-  const docs = await ChatModel.find({}).sort({ provider: 1, name: 1 }).lean();
+  const docs = await ChatModel.find({ deleted: { $ne: true } }).sort({ provider: 1, name: 1 }).lean();
   return docs.map(normalizeManageModel);
 }
 
 export async function getDefaultChatModelId() {
-  const defaultDoc = await ChatModel.findOne({ isDefault: true }).select('_id').lean();
+  const defaultDoc = await ChatModel.findOne({ isDefault: true, deleted: { $ne: true } }).select('_id').lean();
   if (defaultDoc?._id) {
     return defaultDoc._id;
   }
 
-  const firstDoc = await ChatModel.findOne({}).sort({ provider: 1, name: 1 }).select('_id').lean();
+  const firstDoc = await ChatModel.findOne({ deleted: { $ne: true } }).sort({ provider: 1, name: 1 }).select('_id').lean();
   return firstDoc?._id || null;
 }
 
@@ -145,6 +145,7 @@ export async function findChatModelById(modelId) {
       { _id: normalizedId },
       { modelId: normalizedId },
     ],
+    deleted: { $ne: true },
   }).lean();
 
   if (!doc) {
@@ -185,6 +186,7 @@ export async function upsertChatModel(payload = {}, currentId = '') {
     providerConfig: payload.providerConfig && typeof payload.providerConfig === 'object' ? payload.providerConfig : {},
     isDefault: Boolean(payload.isDefault),
     source: payload.source === 'seed' ? 'seed' : 'manual',
+    deleted: false,
   };
 
   const doc = await ChatModel.findOneAndUpdate(
@@ -205,6 +207,43 @@ export async function upsertChatModel(payload = {}, currentId = '') {
 }
 
 export async function deleteChatModel(modelId) {
-  const result = await ChatModel.deleteOne({ _id: String(modelId || '') });
-  return { success: result.deletedCount > 0 };
+  const result = await ChatModel.updateOne({ _id: String(modelId || '') }, { $set: { deleted: true } });
+  return { success: result.modifiedCount > 0 };
+}
+
+export async function copyChatModel(modelId) {
+  const source = await ChatModel.findById(String(modelId || '')).lean();
+  if (!source) {
+    const error = new Error('模型不存在');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const copyId = `${source._id}-copy`;
+  const copyName = `${source.name}-copy`;
+
+  const doc = await ChatModel.findOneAndUpdate(
+    { _id: copyId },
+    {
+      $set: { deleted: false },
+      $setOnInsert: {
+        _id: copyId,
+        provider: source.provider,
+        modelId: `${source.modelId}-copy`,
+        name: copyName,
+        free: source.free,
+        reasoning: source.reasoning,
+        input: source.input || ['text'],
+        contextWindow: source.contextWindow,
+        maxTokens: source.maxTokens,
+        compat: source.compat || {},
+        providerConfig: source.providerConfig || {},
+        isDefault: false,
+        source: 'manual',
+      },
+    },
+    { new: true, upsert: true }
+  ).lean();
+
+  return normalizeManageModel(doc);
 }

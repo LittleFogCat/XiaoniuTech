@@ -61,6 +61,10 @@ const chatModelSchema = new mongoose.Schema(
       enum: ['seed', 'manual'],
       default: 'seed',
     },
+    deleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
@@ -70,5 +74,6 @@ const chatModelSchema = new mongoose.Schema(
 );
 
 chatModelSchema.index({ provider: 1, modelId: 1 }, { unique: true });
+chatModelSchema.index({ deleted: 1 });
 
 export default mongoose.model('ChatModel', chatModelSchema);

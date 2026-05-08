@@ -4,6 +4,7 @@ import BackHomeButton from '../components/BackHomeButton';
 import LanguageThemeControls from '../components/LanguageThemeControls';
 import UserAccountMenu from '../components/UserAccountMenu';
 import {
+  copyChatManagementModel,
   createChatManagementAgent,
   createChatManagementModel,
   deleteChatManagementAgent,
@@ -17,6 +18,7 @@ import {
 import usePageSeo from '../hooks/usePageSeo';
 import { useAppShell } from '../contexts/AppShellContext';
 import { isLoggedIn } from '../services/blogApi';
+import AvatarUpload from '../components/AvatarUpload';
 
 const EMPTY_MODEL_DRAFT = {
   id: '',
@@ -38,6 +40,7 @@ const EMPTY_AGENT_DRAFT = {
   name: '',
   role: '',
   description: '',
+  avatarFileId: '',
   avatarUrl: '',
   personaDefinition: '',
   systemPrompt: '',
@@ -75,6 +78,7 @@ function agentToDraft(agent) {
     name: agent.name || '',
     role: agent.role || '',
     description: agent.description || '',
+    avatarFileId: agent.avatarFileId || '',
     avatarUrl: agent.avatarUrl || '',
     personaDefinition: agent.personaDefinition || '',
     systemPrompt: agent.systemPrompt || '',
@@ -285,6 +289,27 @@ export default function ChatManagePage() {
     }
   }
 
+  async function handleCopyModel() {
+    if (!selectedModelId) {
+      return;
+    }
+    setSaving(true);
+    setMessage('');
+    setError('');
+    try {
+      const result = await copyChatManagementModel(selectedModelId);
+      setMessage(t('chatManage.modelCopied'));
+      await loadData();
+      if (result.model?.id) {
+        setSelectedModelId(result.model.id);
+      }
+    } catch (nextError) {
+      setError(nextError.message || 'Failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleDeleteModel() {
     if (!selectedModelId) {
       return;
@@ -317,7 +342,7 @@ export default function ChatManagePage() {
         name: agentDraft.name,
         role: agentDraft.role,
         description: agentDraft.description,
-        avatarUrl: agentDraft.avatarUrl,
+        avatarFileId: agentDraft.avatarFileId || '',
         personaDefinition: agentDraft.personaDefinition,
         systemPrompt: agentDraft.systemPrompt,
         free: agentDraft.free,
@@ -442,15 +467,15 @@ export default function ChatManagePage() {
                 </div>
                 <label className="flex items-center gap-3 rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-3 py-2.5 text-sm text-[color:var(--text-secondary)]">
                   <input type="checkbox" checked={modelDraft.free} onChange={(event) => setModelDraft((previous) => ({ ...previous, free: event.target.checked }))} />
-                  免费模型
+                  {t('chatManage.freeModel')}
                 </label>
                 <label className="flex items-center gap-3 rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-3 py-2.5 text-sm text-[color:var(--text-secondary)]">
                   <input type="checkbox" checked={modelDraft.reasoning} onChange={(event) => setModelDraft((previous) => ({ ...previous, reasoning: event.target.checked }))} />
-                  推理模型
+                  {t('chatManage.reasoningModel')}
                 </label>
                 <label className="flex items-center gap-3 rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-3 py-2.5 text-sm text-[color:var(--text-secondary)] lg:col-span-2">
                   <input type="checkbox" checked={modelDraft.isDefault} onChange={(event) => setModelDraft((previous) => ({ ...previous, isDefault: event.target.checked }))} />
-                  设为默认模型
+                  {t('chatManage.defaultModel')}
                 </label>
                 <JsonTextareaField
                   id="model-provider-config"
@@ -487,6 +512,9 @@ export default function ChatManagePage() {
               <div className="mt-5 flex flex-wrap gap-3">
                 <button type="button" disabled={saving} onClick={handleSaveModel} className="rounded-xl border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-4 py-2.5 text-sm text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-40">{t('chatManage.saveModel')}</button>
                 {selectedModelId && (
+                  <button type="button" disabled={saving} onClick={handleCopyModel} className="rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-4 py-2.5 text-sm text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-40">{t('chatManage.copyModel')}</button>
+                )}
+                {selectedModelId && (
                   <button type="button" disabled={saving} onClick={handleDeleteModel} className="rounded-xl border border-[color:var(--danger-border)] bg-[var(--danger-soft)] px-4 py-2.5 text-sm text-[color:var(--danger-text)] transition hover:opacity-85 disabled:opacity-40">{t('chatManage.deleteModel')}</button>
                 )}
               </div>
@@ -502,24 +530,29 @@ export default function ChatManagePage() {
                     <div className="font-medium">{agent.name}</div>
                     {agent.free && <span className="rounded-full border border-[color:var(--success-border)] bg-[var(--success-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-[color:var(--success-text)]">free</span>}
                   </div>
-                  <div className="mt-1 text-xs text-[color:var(--text-faint)]">{agent.id}</div>
                 </button>
               ))}
             </aside>
 
             <section className="rounded-3xl border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] p-5">
               <div className="grid gap-4 lg:grid-cols-2">
-                <Field id="agent-id" label={t('chatManage.agentId')}>
-                  <input id="agent-id" value={agentDraft.id} onChange={(event) => setAgentDraft((previous) => ({ ...previous, id: event.target.value }))} placeholder="例如 xiaonaimo" disabled={Boolean(selectedAgentId)} className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none disabled:opacity-50" />
-                </Field>
+                {!selectedAgentId && (
+                  <Field id="agent-id" label={t('chatManage.agentId')}>
+                    <input id="agent-id" value={agentDraft.id} onChange={(event) => setAgentDraft((previous) => ({ ...previous, id: event.target.value }))} placeholder="例如 xiaonaimo" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
+                  </Field>
+                )}
                 <Field id="agent-name" label={t('chatManage.agentName')}>
                   <input id="agent-name" value={agentDraft.name} onChange={(event) => setAgentDraft((previous) => ({ ...previous, name: event.target.value }))} placeholder="例如 小奶茉" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
                 </Field>
                 <Field id="agent-role" label={t('chatManage.agentRole')}>
                   <input id="agent-role" value={agentDraft.role} onChange={(event) => setAgentDraft((previous) => ({ ...previous, role: event.target.value }))} placeholder="例如 猫娘助手" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
                 </Field>
-                <Field id="agent-avatarUrl" label={t('chatManage.agentAvatarUrl')}>
-                  <input id="agent-avatarUrl" value={agentDraft.avatarUrl} onChange={(event) => setAgentDraft((previous) => ({ ...previous, avatarUrl: event.target.value }))} placeholder="https://..." className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
+                <Field id="agent-avatar" label={t('chatManage.agentAvatar')} className="lg:col-span-2">
+                  <AvatarUpload
+                    currentUrl={agentDraft.avatarUrl}
+                    username={agentDraft.name || 'A'}
+                    onUploaded={(fileId, url) => setAgentDraft((previous) => ({ ...previous, avatarFileId: fileId, avatarUrl: url }))}
+                  />
                 </Field>
                 <Field id="agent-description" label={t('chatManage.agentDescription')} className="lg:col-span-2">
                   <textarea id="agent-description" value={agentDraft.description} onChange={(event) => setAgentDraft((previous) => ({ ...previous, description: event.target.value }))} rows={3} placeholder="简短的描述文本" className="w-full rounded-2xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-3 outline-none" />
@@ -532,7 +565,7 @@ export default function ChatManagePage() {
                 </Field>
                 <label className="flex items-center gap-3 rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-3 py-2.5 text-sm text-[color:var(--text-secondary)] lg:col-span-2">
                   <input type="checkbox" checked={agentDraft.free} onChange={(event) => setAgentDraft((previous) => ({ ...previous, free: event.target.checked }))} />
-                  免费智能体
+                  {t('chatManage.freeAgent')}
                 </label>
               </div>
 

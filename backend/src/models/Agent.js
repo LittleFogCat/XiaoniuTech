@@ -52,6 +52,15 @@ const agentSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    avatarFileId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'File',
+      default: null,
+    },
+    deleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
@@ -59,5 +68,7 @@ const agentSchema = new mongoose.Schema(
     collection: 'agent',
   }
 );
+
+agentSchema.index({ deleted: 1 });
 
 export default mongoose.model('Agent', agentSchema);

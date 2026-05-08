@@ -1,5 +1,13 @@
 import Agent from '../models/Agent.js';
+import File from '../models/File.js';
 import { loadSeedIdentities } from '../config/identities.js';
+
+function buildAvatarUrl(doc) {
+  if (doc.avatarFileId) {
+    return `/api/files/${doc.avatarFileId}`;
+  }
+  return doc.avatarUrl || '';
+}
 
 function normalizePublicAgent(doc) {
   if (!doc) {
@@ -11,7 +19,7 @@ function normalizePublicAgent(doc) {
     name: doc.name,
     role: doc.role || '',
     description: doc.description || '',
-    avatarUrl: doc.avatarUrl || '',
+    avatarUrl: buildAvatarUrl(doc),
     free: Boolean(doc.free),
   };
 }
@@ -26,7 +34,8 @@ function normalizeManageAgent(doc) {
     name: doc.name,
     role: doc.role || '',
     description: doc.description || '',
-    avatarUrl: doc.avatarUrl || '',
+    avatarUrl: buildAvatarUrl(doc),
+    avatarFileId: doc.avatarFileId || null,
     personaDefinition: doc.personaDefinition || '',
     systemPrompt: doc.systemPrompt || '',
     free: Boolean(doc.free),
@@ -66,17 +75,17 @@ export async function initializeAgentCatalog() {
 }
 
 export async function listPublicAgents() {
-  const docs = await Agent.find({}).sort({ name: 1 }).lean();
+  const docs = await Agent.find({ deleted: { $ne: true } }).sort({ name: 1 }).lean();
   return docs.map(normalizePublicAgent);
 }
 
 export async function listManageAgents() {
-  const docs = await Agent.find({}).sort({ name: 1 }).lean();
+  const docs = await Agent.find({ deleted: { $ne: true } }).sort({ name: 1 }).lean();
   return docs.map(normalizeManageAgent);
 }
 
 export async function getAgentById(id) {
-  const doc = await Agent.findById(String(id || '')).lean();
+  const doc = await Agent.findOne({ _id: String(id || ''), deleted: { $ne: true } }).lean();
   return doc ? normalizeManageAgent(doc) : null;
 }
 
@@ -88,20 +97,38 @@ export async function upsertAgent(payload = {}, currentId = '') {
     throw error;
   }
 
+  let avatarFileId = null;
+  if (payload.avatarFileId !== undefined && payload.avatarFileId !== '' && payload.avatarFileId !== null) {
+    const file = await File.findById(payload.avatarFileId).select('_id').lean();
+    if (!file) {
+      const error = new Error('头像文件无效');
+      error.statusCode = 400;
+      throw error;
+    }
+    avatarFileId = file._id;
+  }
+
+  const $set = {
+    name: String(payload.name || agentId).trim(),
+    role: String(payload.role || '').trim(),
+    description: String(payload.description || '').trim(),
+    avatarFileId,
+    personaDefinition: String(payload.personaDefinition || '').trim(),
+    systemPrompt: String(payload.systemPrompt || '').trim(),
+    free: payload.free !== false,
+    source: payload.source === 'seed' ? 'seed' : 'manual',
+    seedFile: String(payload.seedFile || '').trim(),
+    deleted: false,
+  };
+
+  if (payload.avatarUrl !== undefined) {
+    $set.avatarUrl = String(payload.avatarUrl || '').trim();
+  }
+
   const doc = await Agent.findOneAndUpdate(
     { _id: agentId },
     {
-      $set: {
-        name: String(payload.name || agentId).trim(),
-        role: String(payload.role || '').trim(),
-        description: String(payload.description || '').trim(),
-        avatarUrl: String(payload.avatarUrl || '').trim(),
-        personaDefinition: String(payload.personaDefinition || '').trim(),
-        systemPrompt: String(payload.systemPrompt || '').trim(),
-        free: payload.free !== false,
-        source: payload.source === 'seed' ? 'seed' : 'manual',
-        seedFile: String(payload.seedFile || '').trim(),
-      },
+      $set,
       $setOnInsert: {
         _id: agentId,
       },
@@ -116,6 +143,6 @@ export async function upsertAgent(payload = {}, currentId = '') {
 }
 
 export async function deleteAgent(agentId) {
-  const result = await Agent.deleteOne({ _id: String(agentId || '') });
-  return { success: result.deletedCount > 0 };
+  const result = await Agent.updateOne({ _id: String(agentId || '') }, { $set: { deleted: true } });
+  return { success: result.modifiedCount > 0 };
 }
