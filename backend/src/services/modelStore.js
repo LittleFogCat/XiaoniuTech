@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import ChatModel from '../models/ChatModel.js';
 import { loadModelsConfig } from '../config/models.js';
 
@@ -141,10 +142,7 @@ export async function findChatModelById(modelId) {
   }
 
   const doc = await ChatModel.findOne({
-    $or: [
-      { _id: normalizedId },
-      { modelId: normalizedId },
-    ],
+    _id: normalizedId,
     deleted: { $ne: true },
   }).lean();
 
@@ -161,7 +159,7 @@ export async function findChatModelById(modelId) {
 export async function upsertChatModel(payload = {}, currentId = '') {
   const provider = String(payload.provider || '').trim();
   const modelId = String(payload.modelId || '').trim();
-  const storedId = currentId || buildStoredModelId(provider, modelId);
+  const storedId = currentId || uuidv4();
 
   if (!provider || !modelId) {
     const error = new Error('provider 和 modelId 不能为空');
@@ -219,7 +217,7 @@ export async function copyChatModel(modelId) {
     throw error;
   }
 
-  const copyId = `${source._id}-copy`;
+  const copyId = uuidv4();
   const copyName = `${source.name}-copy`;
 
   const doc = await ChatModel.findOneAndUpdate(

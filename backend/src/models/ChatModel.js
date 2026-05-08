@@ -73,7 +73,6 @@ const chatModelSchema = new mongoose.Schema(
   }
 );
 
-chatModelSchema.index({ provider: 1, modelId: 1 }, { unique: true });
 chatModelSchema.index({ deleted: 1 });
 
 export default mongoose.model('ChatModel', chatModelSchema);
