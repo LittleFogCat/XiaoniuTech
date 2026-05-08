@@ -82,8 +82,6 @@ export async function initializeModelCatalog() {
           $setOnInsert: {
             _id: storedId,
             source: 'seed',
-          },
-          $set: {
             provider,
             modelId: model.id,
             name: model.name || model.id,

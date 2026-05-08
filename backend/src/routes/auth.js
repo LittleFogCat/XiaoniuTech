@@ -16,6 +16,7 @@ import { sendRegistrationCodeEmail } from '../services/mail.js';
 import { syncFileReferencesForBiz } from '../services/fileReferenceStore.js';
 import PendingRegistration from '../models/PendingRegistration.js';
 import User from '../models/User.js';
+import UserGroup from '../models/UserGroup.js';
 import File from '../models/File.js';
 
 const router = Router();
@@ -180,11 +181,13 @@ router.post('/register/verify', async (req, res) => {
       return res.status(409).json({ error: '该邮箱已注册' });
     }
 
+    const defaultGroup = await UserGroup.findOne({ key: 'user' }).select('_id').lean();
     const user = await User.create({
       email,
       nickname: email,
       passwordHash: pendingRegistration.passwordHash,
       emailVerifiedAt: new Date(),
+      groups: defaultGroup ? [defaultGroup._id] : [],
     });
 
     await PendingRegistration.deleteOne({ email });

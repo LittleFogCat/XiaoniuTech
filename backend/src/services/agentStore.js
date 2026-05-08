@@ -46,8 +46,6 @@ export async function initializeAgentCatalog() {
         $setOnInsert: {
           _id: agent.id,
           source: 'seed',
-        },
-        $set: {
           name: agent.name,
           role: agent.role || '',
           description: agent.description || '',

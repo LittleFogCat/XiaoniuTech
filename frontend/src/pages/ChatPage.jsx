@@ -182,7 +182,9 @@ function formatChatError(error, t) {
 }
 
 function isPersistedChat(chat) {
-  return chat?.chatTarget?.type === 'identity' || (Array.isArray(chat?.messages) && chat.messages.length > 0);
+  if (chat?.chatTarget?.type === 'identity') return true;
+  if (!Array.isArray(chat?.messages)) return true;
+  return chat.messages.length > 0;
 }
 
 function upsertAssistantMessage(messages, content, thinking = false) {
