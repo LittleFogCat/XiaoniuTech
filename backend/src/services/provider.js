@@ -11,7 +11,7 @@ function buildUrl(baseUrl) {
 
 function buildPayload(modelConfig, messages, options = {}) {
   const payload = {
-    model: modelConfig.id,
+    model: modelConfig.modelId,
     messages: messages,
   };
 
