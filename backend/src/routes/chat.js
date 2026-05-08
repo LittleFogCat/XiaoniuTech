@@ -223,7 +223,7 @@ router.delete('/chats/:id', requirePermission('chat:view'), async (req, res) => 
   }
 });
 
-router.get('/models', async (req, res) => {
+router.get('/chat/models', async (req, res) => {
   try {
     const [models, defaultModel] = await Promise.all([
       listPublicChatModels(),
@@ -236,7 +236,7 @@ router.get('/models', async (req, res) => {
   }
 });
 
-router.get('/identities', async (req, res) => {
+router.get('/chat/agents', async (req, res) => {
   try {
     res.json({ identities: await listPublicAgents() });
   } catch (error) {

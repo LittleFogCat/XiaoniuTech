@@ -139,7 +139,7 @@ export async function removeBlacklistEntry(userId) {
 }
 
 export async function fetchChatManagementModels() {
-  const res = await fetch(`${API_BASE}/chat-management/models`, {
+  const res = await fetch(`${API_BASE}/chat/management/models`, {
     headers: getAuthHeaders(),
   });
   if (!res.ok) {
@@ -149,7 +149,7 @@ export async function fetchChatManagementModels() {
 }
 
 export async function createChatManagementModel(data) {
-  const res = await fetch(`${API_BASE}/chat-management/models`, {
+  const res = await fetch(`${API_BASE}/chat/management/models`, {
     method: 'POST',
     headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(data),
@@ -161,7 +161,7 @@ export async function createChatManagementModel(data) {
 }
 
 export async function updateChatManagementModel(modelId, data) {
-  const res = await fetch(`${API_BASE}/chat-management/models/${encodeURIComponent(modelId)}`, {
+  const res = await fetch(`${API_BASE}/chat/management/models/${encodeURIComponent(modelId)}`, {
     method: 'PUT',
     headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(data),
@@ -173,7 +173,7 @@ export async function updateChatManagementModel(modelId, data) {
 }
 
 export async function deleteChatManagementModel(modelId) {
-  const res = await fetch(`${API_BASE}/chat-management/models/${encodeURIComponent(modelId)}`, {
+  const res = await fetch(`${API_BASE}/chat/management/models/${encodeURIComponent(modelId)}`, {
     method: 'DELETE',
     headers: getAuthHeaders(),
   });
@@ -184,7 +184,7 @@ export async function deleteChatManagementModel(modelId) {
 }
 
 export async function fetchChatManagementAgents() {
-  const res = await fetch(`${API_BASE}/chat-management/agents`, {
+  const res = await fetch(`${API_BASE}/chat/management/agents`, {
     headers: getAuthHeaders(),
   });
   if (!res.ok) {
@@ -194,7 +194,7 @@ export async function fetchChatManagementAgents() {
 }
 
 export async function createChatManagementAgent(data) {
-  const res = await fetch(`${API_BASE}/chat-management/agents`, {
+  const res = await fetch(`${API_BASE}/chat/management/agents`, {
     method: 'POST',
     headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(data),
@@ -206,7 +206,7 @@ export async function createChatManagementAgent(data) {
 }
 
 export async function updateChatManagementAgent(agentId, data) {
-  const res = await fetch(`${API_BASE}/chat-management/agents/${encodeURIComponent(agentId)}`, {
+  const res = await fetch(`${API_BASE}/chat/management/agents/${encodeURIComponent(agentId)}`, {
     method: 'PUT',
     headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(data),
@@ -218,7 +218,7 @@ export async function updateChatManagementAgent(agentId, data) {
 }
 
 export async function deleteChatManagementAgent(agentId) {
-  const res = await fetch(`${API_BASE}/chat-management/agents/${encodeURIComponent(agentId)}`, {
+  const res = await fetch(`${API_BASE}/chat/management/agents/${encodeURIComponent(agentId)}`, {
     method: 'DELETE',
     headers: getAuthHeaders(),
   });

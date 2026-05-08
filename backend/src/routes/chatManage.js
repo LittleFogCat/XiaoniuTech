@@ -9,7 +9,7 @@ function getStatusCode(error, fallback = 500) {
   return error?.statusCode || fallback;
 }
 
-router.get('/chat-management/models', requirePermission('chat:manage_model'), async (req, res) => {
+router.get('/chat/management/models', requirePermission('chat:manage_model'), async (req, res) => {
   try {
     res.json({ models: await listManageChatModels() });
   } catch (error) {
@@ -17,7 +17,7 @@ router.get('/chat-management/models', requirePermission('chat:manage_model'), as
   }
 });
 
-router.post('/chat-management/models', requirePermission('chat:manage_model'), async (req, res) => {
+router.post('/chat/management/models', requirePermission('chat:manage_model'), async (req, res) => {
   try {
     res.status(201).json({ model: await upsertChatModel(req.body || {}) });
   } catch (error) {
@@ -25,7 +25,7 @@ router.post('/chat-management/models', requirePermission('chat:manage_model'), a
   }
 });
 
-router.put('/chat-management/models/:id', requirePermission('chat:manage_model'), async (req, res) => {
+router.put('/chat/management/models/:id', requirePermission('chat:manage_model'), async (req, res) => {
   try {
     res.json({ model: await upsertChatModel(req.body || {}, req.params.id) });
   } catch (error) {
@@ -33,7 +33,7 @@ router.put('/chat-management/models/:id', requirePermission('chat:manage_model')
   }
 });
 
-router.delete('/chat-management/models/:id', requirePermission('chat:manage_model'), async (req, res) => {
+router.delete('/chat/management/models/:id', requirePermission('chat:manage_model'), async (req, res) => {
   try {
     res.json(await deleteChatModel(req.params.id));
   } catch (error) {
@@ -41,7 +41,7 @@ router.delete('/chat-management/models/:id', requirePermission('chat:manage_mode
   }
 });
 
-router.get('/chat-management/agents', requirePermission('chat:manage_agent'), async (req, res) => {
+router.get('/chat/management/agents', requirePermission('chat:manage_agent'), async (req, res) => {
   try {
     res.json({ agents: await listManageAgents() });
   } catch (error) {
@@ -49,7 +49,7 @@ router.get('/chat-management/agents', requirePermission('chat:manage_agent'), as
   }
 });
 
-router.post('/chat-management/agents', requirePermission('chat:manage_agent'), async (req, res) => {
+router.post('/chat/management/agents', requirePermission('chat:manage_agent'), async (req, res) => {
   try {
     res.status(201).json({ agent: await upsertAgent(req.body || {}) });
   } catch (error) {
@@ -57,7 +57,7 @@ router.post('/chat-management/agents', requirePermission('chat:manage_agent'), a
   }
 });
 
-router.put('/chat-management/agents/:id', requirePermission('chat:manage_agent'), async (req, res) => {
+router.put('/chat/management/agents/:id', requirePermission('chat:manage_agent'), async (req, res) => {
   try {
     res.json({ agent: await upsertAgent(req.body || {}, req.params.id) });
   } catch (error) {
@@ -65,7 +65,7 @@ router.put('/chat-management/agents/:id', requirePermission('chat:manage_agent')
   }
 });
 
-router.delete('/chat-management/agents/:id', requirePermission('chat:manage_agent'), async (req, res) => {
+router.delete('/chat/management/agents/:id', requirePermission('chat:manage_agent'), async (req, res) => {
   try {
     res.json(await deleteAgent(req.params.id));
   } catch (error) {

@@ -36,7 +36,7 @@ async function test() {
   console.log('Body:', health.body);
 
   console.log('\n=== 测试获取模型列表 ===');
-  const models = await request('GET', '/api/models');
+  const models = await request('GET', '/api/chat/models');
   console.log('Status:', models.status);
   const modelsData = JSON.parse(models.body);
   console.log('模型数量:', modelsData.models?.length);

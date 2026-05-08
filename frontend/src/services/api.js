@@ -89,7 +89,7 @@ export async function verifyRegistration(email, code) {
 }
 
 export async function fetchModels() {
-  const res = await fetch(`${API_BASE}/models`, {
+  const res = await fetch(`${API_BASE}/chat/models`, {
     headers: getAuthHeaders(),
   });
   if (!res.ok) {
@@ -100,7 +100,7 @@ export async function fetchModels() {
 }
 
 export async function fetchIdentities() {
-  const res = await fetch(`${API_BASE}/identities`, {
+  const res = await fetch(`${API_BASE}/chat/agents`, {
     headers: getAuthHeaders(),
   });
   if (!res.ok) {
