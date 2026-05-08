@@ -233,7 +233,7 @@ function buildAvatarUrl(avatarFileId) {
 router.get('/user/profile', requireAuth, async (req, res) => {
   try {
     const user = await User.findOne({ email: req.user.username })
-      .select('email nickname avatarFileId bio priority createdAt')
+      .select('email nickname avatarFileId bio createdAt')
       .lean();
 
     if (!user) {
@@ -247,8 +247,9 @@ router.get('/user/profile', requireAuth, async (req, res) => {
         avatarUrl: buildAvatarUrl(user.avatarFileId),
         avatarFileId: user.avatarFileId,
         bio: user.bio,
-        priority: user.priority,
         createdAt: user.createdAt,
+        groups: req.user.groups,
+        permissions: req.user.permissions,
       },
     });
   } catch (error) {
@@ -264,7 +265,7 @@ router.put('/user/profile', requireAuth, async (req, res) => {
       return res.status(404).json({ error: '用户不存在' });
     }
 
-    const { nickname, avatarFileId, bio, priority, currentPassword, newPassword } = req.body || {};
+    const { nickname, avatarFileId, bio, currentPassword, newPassword } = req.body || {};
 
     if (nickname !== undefined) {
       const trimmed = String(nickname).trim();
@@ -303,14 +304,6 @@ router.put('/user/profile', requireAuth, async (req, res) => {
       user.bio = String(bio).trim().slice(0, 200);
     }
 
-    if (priority !== undefined) {
-      const p = parseInt(priority, 10);
-      if (isNaN(p) || p < 1 || p > 100) {
-        return res.status(400).json({ error: '优先级需为 1 到 100 的整数' });
-      }
-      user.priority = p;
-    }
-
     if (newPassword !== undefined && newPassword !== '') {
       if (!currentPassword || !(await verifyPassword(currentPassword, user.passwordHash))) {
         return res.status(400).json({ error: '当前密码错误' });
@@ -337,8 +330,9 @@ router.put('/user/profile', requireAuth, async (req, res) => {
         avatarUrl: buildAvatarUrl(user.avatarFileId),
         avatarFileId: user.avatarFileId,
         bio: user.bio,
-        priority: user.priority,
         createdAt: user.createdAt,
+        groups: req.user.groups,
+        permissions: req.user.permissions,
       },
     });
   } catch (error) {

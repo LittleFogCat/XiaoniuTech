@@ -147,6 +147,17 @@ export async function updatePost(slug, data) {
   return result.post;
 }
 
+export async function autosavePost(slug, data) {
+  const res = await fetch(`${API_BASE}/posts/${slug}/autosave`, {
+    method: 'PUT',
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) await throwRequestError(res, 'Failed to autosave post');
+  const result = await res.json();
+  return result.autosave;
+}
+
 export async function fetchManagePosts() {
   const res = await fetch(`${API_BASE}/posts/manage`, {
     headers: getAuthHeaders(),

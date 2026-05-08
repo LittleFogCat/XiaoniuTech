@@ -10,7 +10,9 @@ import IdentityPicker from '../components/IdentityPicker';
 import LanguageThemeControls from '../components/LanguageThemeControls';
 import UserAccountMenu from '../components/UserAccountMenu';
 import useTransientScrollbar from '../hooks/useTransientScrollbar';
+import usePageSeo from '../hooks/usePageSeo';
 import { useAppShell } from '../contexts/AppShellContext';
+import { fetchUserProfile } from '../services/blogApi';
 import {
   fetchModels,
   fetchIdentities,
@@ -37,6 +39,7 @@ const CHAT_THEME_COLOR = '#162033';
 const STREAM_UI_UPDATE_INTERVAL_MS = 100;
 const SCROLL_BOTTOM_THRESHOLD_PX = 48;
 const SCROLL_POSITION_EPSILON_PX = 0.5;
+const PAID_CONTACT_MESSAGE = '当前资源需要联系站长开通后使用。请通过首页底部微信或邮件 littlefogcat@foxmail.com 联系站长。';
 
 function setNamedMetaContent(name, content) {
   let meta = document.querySelector(`meta[name="${name}"]`);
@@ -115,6 +118,45 @@ function normalizeModelId(modelId, models, fallback = '') {
   return fallback || modelId;
 }
 
+function hasAnyPermission(permissions = [], candidates = []) {
+  return candidates.some((permission) => permissions.includes(permission));
+}
+
+function canUseModel(model, permissions, isGuest) {
+  if (!model) {
+    return false;
+  }
+
+  if (model.free) {
+    return isGuest || hasAnyPermission(permissions, ['chat:chat_free', 'chat:chat_paid']);
+  }
+
+  return !isGuest && permissions.includes('chat:chat_paid');
+}
+
+function canUseIdentity(identity, permissions, isGuest) {
+  if (!identity) {
+    return false;
+  }
+
+  if (identity.free) {
+    return isGuest || hasAnyPermission(permissions, ['chat:agent_free', 'chat:agent_paid']);
+  }
+
+  return !isGuest && permissions.includes('chat:agent_paid');
+}
+
+function pickInitialModel(models, preferredModelId, permissions, isGuest) {
+  const normalizedPreferred = normalizeModelId(preferredModelId, models, '');
+  const preferredModel = models.find((model) => model.id === normalizedPreferred) || null;
+  if (preferredModel && canUseModel(preferredModel, permissions, isGuest)) {
+    return preferredModel.id;
+  }
+
+  const firstAllowedModel = models.find((model) => canUseModel(model, permissions, isGuest));
+  return firstAllowedModel?.id || normalizedPreferred || models[0]?.id || '';
+}
+
 function resolveIdentityMeta(chat, identities, t) {
   if (chat?.chatTarget?.type !== 'identity') {
     return null;
@@ -177,6 +219,7 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [guestLimitNotice, setGuestLimitNotice] = useState('');
+  const [viewerPermissions, setViewerPermissions] = useState([]);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const chatScrollRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -192,9 +235,21 @@ export default function ChatPage() {
   const assistantName = activeIdentity?.name || t('common.assistantName');
   const assistantAvatarUrl = activeIdentity?.avatarUrl || '';
   const activeIdentityLabel = activeIdentity ? [activeIdentity.role, activeIdentity.name].filter(Boolean).join(' · ') : '';
+  const selectedModelMeta = models.find((model) => model.id === selectedModel) || null;
   const authActionLabel = isGuest ? t('common.login') : t('common.logout');
   const authActionTitle = isGuest ? t('chat.authLoginTitle') : t('chat.authLogoutTitle');
   const chatThemeColor = theme === 'light' ? '#f3f6fb' : CHAT_THEME_COLOR;
+
+  usePageSeo({
+    title: viewMode === CHAT_VIEW.identities
+      ? `${t('chat.selectIdentityTitle')} - ${t('common.siteName')}`
+      : activeIdentity?.name
+        ? `${activeIdentity.name} - ${t('common.chatName')}`
+        : `${t('chat.pageTitle')} - ${t('common.siteName')}`,
+    description: activeIdentity?.description || t('chat.heroDesc'),
+    image: activeIdentity?.avatarUrl || '/image/niu.jpg',
+    robots: 'noindex, nofollow',
+  });
 
   useEffect(() => {
     const html = document.documentElement;
@@ -210,15 +265,6 @@ export default function ChatPage() {
       body.classList.remove('chat-page-active');
     };
   }, [chatThemeColor]);
-
-  useEffect(() => {
-    if (viewMode === CHAT_VIEW.identities) {
-      document.title = t('chat.selectIdentityTitle');
-      return;
-    }
-
-    document.title = activeIdentity?.name ? `${activeIdentity.name} | ${t('common.chatName')}` : t('chat.pageTitle');
-  }, [viewMode, activeIdentity?.name, t]);
 
   useEffect(() => {
     if (!mobileActionsOpen) {
@@ -266,6 +312,39 @@ export default function ChatPage() {
     setCurrentChat(null);
     setViewMode(CHAT_VIEW.conversation);
     setGuestLimitNotice('');
+    setViewerPermissions([]);
+  };
+
+  const showUnavailableMessage = (resourceType, isFree) => {
+    if (isFree) {
+      window.alert(resourceType === 'model' ? '当前账号没有免费模型使用权限。' : '当前账号没有免费智能体使用权限。');
+      return;
+    }
+
+    window.alert(PAID_CONTACT_MESSAGE);
+  };
+
+  const ensureModelAvailable = (modelId) => {
+    const nextModel = models.find((item) => item.id === normalizeModelId(modelId, models, modelId));
+    if (!nextModel) {
+      return false;
+    }
+
+    if (canUseModel(nextModel, viewerPermissions, isGuest)) {
+      return true;
+    }
+
+    showUnavailableMessage('model', nextModel.free);
+    return false;
+  };
+
+  const ensureIdentityAvailable = (identity) => {
+    if (canUseIdentity(identity, viewerPermissions, isGuest)) {
+      return true;
+    }
+
+    showUnavailableMessage('identity', identity?.free);
+    return false;
   };
 
   const handleOpenIdentities = () => {
@@ -357,12 +436,14 @@ export default function ChatPage() {
       console.error('Failed to load identities:', error);
       return [];
     });
+    const profilePromise = isGuest ? Promise.resolve(null) : fetchUserProfile();
 
-    Promise.all([modelPromise, chatPromise, identityPromise])
-      .then(([modelData, chatList, identityList]) => {
+    Promise.all([modelPromise, chatPromise, identityPromise, profilePromise])
+      .then(([modelData, chatList, identityList, profile]) => {
         const availableModels = modelData.models;
         const defaultModel = modelData.defaultModel;
-        const fallbackModel = defaultModel || availableModels[0]?.id || '';
+        const permissions = Array.isArray(profile?.permissions) ? profile.permissions : [];
+        const fallbackModel = pickInitialModel(availableModels, defaultModel, permissions, isGuest);
         const normalizedChats = chatList
           .map(chat => ({
             ...chat,
@@ -373,10 +454,15 @@ export default function ChatPage() {
 
         setModels(availableModels);
         setIdentities(identityList);
+        setViewerPermissions(permissions);
         setChats(sortChatsByUpdatedAt(normalizedChats));
         setCurrentChat(null);
         setSelectedModel(fallbackModel);
         setViewMode(CHAT_VIEW.conversation);
+
+        if (!fallbackModel) {
+          setLoadError('当前账号没有可用模型，请联系站长开通。');
+        }
       })
       .catch((err) => {
         console.error('Failed to load data:', err);
@@ -459,6 +545,10 @@ export default function ChatPage() {
   };
 
   const handleCreateIdentityChat = async (identity) => {
+    if (!ensureIdentityAvailable(identity)) {
+      return;
+    }
+
     const existing = chats.find(chat => chat?.chatTarget?.type === 'identity' && chat.chatTarget.id === identity.id);
     if (existing) {
       setGuestLimitNotice('');
@@ -579,12 +669,19 @@ export default function ChatPage() {
   const handleSend = async (content) => {
     const effectiveModel = normalizeModelId(selectedModel, models, selectedModel);
     const activeChatTarget = currentChat?.chatTarget || null;
+    const activeChatIdentity = identities.find((identity) => identity.id === activeChatTarget?.id) || null;
     const title = buildChatTitle(content, currentChat, activeIdentity, t);
     const persistedTitle = currentChat?.title || title;
     let chatId = currentChat?.id || null;
     let draftChat = currentChat;
 
     if (!effectiveModel || isLoading) return;
+    if (!ensureModelAvailable(effectiveModel)) {
+      return;
+    }
+    if (activeChatIdentity && !ensureIdentityAvailable(activeChatIdentity)) {
+      return;
+    }
     if (isGuest && !currentChat && chats.length >= GUEST_CHAT_LIMIT) {
       setGuestLimitNotice(t('chat.guestLimitContinue', { limit: GUEST_CHAT_LIMIT }));
       return;
@@ -809,6 +906,10 @@ export default function ChatPage() {
 
   const handleModelChange = async (modelId) => {
     const normalizedModelId = normalizeModelId(modelId, models, modelId);
+
+    if (!ensureModelAvailable(normalizedModelId)) {
+      return;
+    }
 
     setSelectedModel(normalizedModelId);
     setGuestLimitNotice('');

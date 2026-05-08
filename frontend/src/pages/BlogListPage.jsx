@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import BlogHeader from '../components/BlogHeader';
 import BlogSidebar from '../components/BlogSidebar';
+import usePageSeo from '../hooks/usePageSeo';
 import { fetchPosts, isLoggedIn } from '../services/blogApi';
 import { useAppShell } from '../contexts/AppShellContext';
 
@@ -16,9 +17,11 @@ export default function BlogListPage() {
   const tag = searchParams.get('tag') || '';
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    document.title = t('blog.pageTitle');
-  }, [t]);
+  usePageSeo({
+    title: t('blog.pageTitle'),
+    description: '技术文章、标签筛选与博客归档列表。',
+    canonicalPath: tag ? `/blog?tag=${encodeURIComponent(tag)}` : '/blog',
+  });
 
   useEffect(() => {
     setLoading(true);

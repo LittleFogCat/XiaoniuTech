@@ -1,4 +1,4 @@
-import { findProviderAndModel } from '../config/models.js';
+import { findChatModelById } from './modelStore.js';
 import { shouldPrintProviderLog } from '../config/backend.js';
 
 function buildUrl(baseUrl) {
@@ -49,9 +49,6 @@ function buildHeaders(provider, providerConfig) {
 
   const authHeader = providerConfig.authHeader ?? true;
   const apiKey = providerConfig.apiKey;
-
-  console.log('providerConfig', providerConfig);
-  console.log('provider', provider);
   if (authHeader && !apiKey) {
     throw new Error(`Missing API key for provider ${provider}. Check the apiKey field in models.json.`);
   }
@@ -113,12 +110,13 @@ function parseChunk(chunk) {
 }
 
 export async function* streamCompletions(modelId, messages, options = {}) {
-  const result = findProviderAndModel(modelId);
-  if (!result) {
+  const modelConfig = await findChatModelById(modelId);
+  if (!modelConfig) {
     throw new Error(`Model ${modelId} not found`);
   }
 
-  const { provider, config: providerConfig, model: modelConfig } = result;
+  const provider = modelConfig.provider;
+  const providerConfig = modelConfig.providerConfig || {};
   const url = buildUrl(providerConfig.baseUrl);
   const payload = buildPayload(modelConfig, messages, options);
   const headers = buildHeaders(provider, providerConfig);
@@ -132,7 +130,7 @@ export async function* streamCompletions(modelId, messages, options = {}) {
     logProviderExchange('request', {
       requestedModelId: modelId,
       provider,
-      resolvedModelId: modelConfig.id,
+        resolvedModelId: modelConfig.id,
       url,
       headers,
       payload,

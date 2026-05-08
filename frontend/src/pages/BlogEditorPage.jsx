@@ -1,8 +1,35 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import MarkdownEditor from '../components/MarkdownEditor';
-import { createPost, updatePost, fetchPostUnpublished, isLoggedIn } from '../services/blogApi';
+import usePageSeo from '../hooks/usePageSeo';
+import { autosavePost, createPost, updatePost, fetchPostUnpublished, isLoggedIn } from '../services/blogApi';
 import { useAppShell } from '../contexts/AppShellContext';
+
+const NEW_POST_AUTOSAVE_KEY = 'blog_editor_new_autosave';
+
+function readNewPostAutosave() {
+  try {
+    const raw = localStorage.getItem(NEW_POST_AUTOSAVE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') {
+      return null;
+    }
+    return {
+      title: String(parsed.title || ''),
+      content: String(parsed.content || ''),
+      tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+function clearNewPostAutosave() {
+  localStorage.removeItem(NEW_POST_AUTOSAVE_KEY);
+}
 
 export default function BlogEditorPage() {
   const { t } = useAppShell();
@@ -11,8 +38,16 @@ export default function BlogEditorPage() {
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(!!slug);
   const [error, setError] = useState(null);
+  const [draftState, setDraftState] = useState(() => readNewPostAutosave());
+  const [submitError, setSubmitError] = useState('');
 
   const isEditing = !!slug;
+
+  usePageSeo({
+    title: isEditing && post?.title ? t('blog.editPageTitle', { title: post.title }) : t('blog.writePageTitle'),
+    description: '博客草稿编辑、自动保存与发布后台页。',
+    robots: 'noindex, nofollow',
+  });
 
   useEffect(() => {
     if (!isLoggedIn()) {
@@ -25,8 +60,19 @@ export default function BlogEditorPage() {
       fetchPostUnpublished(slug)
         .then((p) => {
           if (p) {
-            setPost(p);
-            document.title = t('blog.editPageTitle', { title: p.title });
+            const autosave = p.autosave && typeof p.autosave === 'object'
+              ? {
+                  title: String(p.autosave.title || p.title || ''),
+                  content: String(p.autosave.content || p.content || ''),
+                  tags: Array.isArray(p.autosave.tags) ? p.autosave.tags : (p.tags || []),
+                }
+              : null;
+            setPost({
+              ...p,
+              title: autosave?.title || p.title,
+              content: autosave?.content || p.content,
+              tags: autosave?.tags || p.tags || [],
+            });
           } else {
             setError(t('blog.postNotFound'));
           }
@@ -34,23 +80,46 @@ export default function BlogEditorPage() {
         .catch(() => setError(t('blog.postNotFound')))
         .finally(() => setLoading(false));
     } else {
-      document.title = t('blog.writePageTitle');
+      setDraftState(readNewPostAutosave());
     }
   }, [slug, isEditing, navigate, t]);
 
   async function handleSave(data) {
-    let result;
+    setSubmitError('');
+    try {
+      let result;
+      if (isEditing) {
+        result = await updatePost(slug, data);
+      } else {
+        result = await createPost(data);
+        clearNewPostAutosave();
+      }
+
+      if (data.published) {
+        navigate(`/blog/post/${result.slug}`, { replace: true });
+      } else {
+        navigate(`/blog/edit/${result.slug}`, { replace: true });
+      }
+    } catch (nextError) {
+      setSubmitError(nextError.message || t('blog.saveFailed'));
+      throw nextError;
+    }
+  }
+
+  async function handleAutosave(data) {
     if (isEditing) {
-      result = await updatePost(slug, data);
-    } else {
-      result = await createPost(data);
+      await autosavePost(slug, data);
+      return;
     }
 
-    if (data.published) {
-      navigate(`/blog/post/${result.slug}`, { replace: true });
-    } else {
-      navigate(`/blog/edit/${result.slug}`, { replace: true });
-    }
+    const nextDraft = {
+      title: String(data.title || ''),
+      content: String(data.content || ''),
+      tags: Array.isArray(data.tags) ? data.tags : [],
+      updatedAt: Date.now(),
+    };
+    localStorage.setItem(NEW_POST_AUTOSAVE_KEY, JSON.stringify(nextDraft));
+    setDraftState(nextDraft);
   }
 
   function handleCancel() {
@@ -79,11 +148,17 @@ export default function BlogEditorPage() {
   return (
     <div className="flex h-screen flex-col bg-[var(--page-bg)] text-[color:var(--text-primary)]">
       <main className="flex min-h-0 flex-1 flex-col px-4 py-4 sm:px-6 sm:py-6">
+        {submitError && (
+          <div className="mb-4 rounded-2xl border border-[color:var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[color:var(--danger-text)]">
+            {submitError}
+          </div>
+        )}
         <MarkdownEditor
-          initialTitle={post?.title || ''}
-          initialContent={post?.content || ''}
-          initialTags={post?.tags || []}
+          initialTitle={post?.title || draftState?.title || ''}
+          initialContent={post?.content || draftState?.content || ''}
+          initialTags={post?.tags || draftState?.tags || []}
           onSave={handleSave}
+          onAutosave={handleAutosave}
           onCancel={handleCancel}
         />
       </main>

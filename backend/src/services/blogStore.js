@@ -143,6 +143,13 @@ export async function getPostBySlug(slug) {
   return BlogPost.findOne(query).lean();
 }
 
+export async function listPublishedPostSeoEntries() {
+  return BlogPost.find({ published: true, trashed: { $ne: true } })
+    .select('slug publishedAt updatedAt')
+    .sort({ publishedAt: -1 })
+    .lean();
+}
+
 export async function getPostBySlugUnpublished(slug, author) {
   return BlogPost.findOne({ slug, author, trashed: { $ne: true } }).lean();
 }
@@ -175,6 +182,7 @@ export async function createPost(author, data) {
     published,
     publishedAt: published ? new Date() : null,
     wordCount: prepared.wordCount,
+    autosave: null,
   });
 
   await syncPostImageReferences(post._id, prepared.fileIds);
@@ -226,11 +234,39 @@ export async function updatePost(slug, author, data) {
     post.publishedAt = published ? new Date() : null;
   }
 
+  post.autosave = null;
+
   await post.save();
   if (nextFileIds) {
     await syncPostImageReferences(post._id, nextFileIds);
   }
   return post.toObject();
+}
+
+export async function updatePostAutosave(slug, author, data = {}) {
+  const post = await BlogPost.findOne({ slug, author, trashed: { $ne: true } });
+
+  if (!post) {
+    const error = new Error('文章不存在');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const title = String(data.title || '').trim();
+  const tags = Array.isArray(data.tags)
+    ? data.tags.map((tag) => String(tag || '').trim()).filter(Boolean)
+    : [];
+  const content = String(data.content || '');
+
+  post.autosave = {
+    title,
+    tags,
+    content,
+    updatedAt: new Date(),
+  };
+
+  await post.save();
+  return post.autosave;
 }
 
 export async function trashPost(slug, author) {
@@ -452,7 +488,22 @@ export async function addComment(postId, author, content) {
 
   await BlogPost.findByIdAndUpdate(post._id, { $inc: { commentCount: 1 } });
 
-  return comment.toObject();
+  const user = await User.findOne({ email: author })
+    .select('email nickname avatarFileId')
+    .lean();
+
+  return {
+    ...comment.toObject(),
+    authorProfile: user
+      ? {
+          nickname: user.nickname || user.email,
+          avatarUrl: user.avatarFileId ? `/api/files/${user.avatarFileId}` : '',
+        }
+      : {
+          nickname: author,
+          avatarUrl: '',
+        },
+  };
 }
 
 export async function importPosts(author, articles = []) {

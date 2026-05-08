@@ -120,6 +120,53 @@ export default function UserAccountMenu({ onLogout }) {
           <div className="border-t border-[color:var(--surface-border)]" />
 
           <div className="py-1">
+            {(profile?.permissions?.includes('chat:manage_model') || profile?.permissions?.includes('chat:manage_agent')) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  navigate('/chat/manage');
+                }}
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2l3.09 6.26L22 9l-5 4.87L18.18 22 12 18.56 5.82 22 7 13.87 2 9l6.91-.74L12 2z" />
+                </svg>
+                聊天管理
+              </button>
+            )}
+            {(profile?.permissions?.includes('perm:view') || profile?.permissions?.includes('blacklist:view')) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  navigate('/permissions');
+                }}
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="16" rx="2" />
+                  <path d="M7 8h10M7 12h10M7 16h6" />
+                </svg>
+                权限管理
+              </button>
+            )}
+            {profile?.permissions?.includes('statistics:view') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  navigate('/statistics');
+                }}
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="4" y1="19" x2="20" y2="19" />
+                  <polyline points="6 15 10 11 13 14 18 9" />
+                </svg>
+                访问统计
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {

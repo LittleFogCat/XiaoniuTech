@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import LanguageThemeControls from '../components/LanguageThemeControls';
 import UserAccountMenu from '../components/UserAccountMenu';
 import { useAppShell } from '../contexts/AppShellContext';
+import usePageSeo from '../hooks/usePageSeo';
 import { isLoggedIn as hasAuthenticatedSession } from '../services/blogApi';
 import './HomePage.css';
 
@@ -20,6 +21,7 @@ function ActionLink({ item, children, className }) {
 
 export default function HomePage() {
   const { t, theme } = useAppShell();
+  const siteOrigin = typeof window === 'undefined' ? '' : window.location.origin;
   const [isWechatOpen, setIsWechatOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [hasAccountSession, setHasAccountSession] = useState(() => hasAuthenticatedSession());
@@ -32,9 +34,20 @@ export default function HomePage() {
   const supernovaTimerRef = useRef(null);
   const hoverBurstThrottleRef = useRef(0);
 
-  useEffect(() => {
-    document.title = t('common.siteName');
-  }, [t]);
+  usePageSeo({
+    title: `首页 - ${t('common.siteName')}`,
+    description: t('home.heroSubtitle'),
+    canonicalPath: '/',
+    image: '/image/niu.jpg',
+    jsonLd: siteOrigin
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'WebSite',
+          name: t('common.siteName'),
+          url: `${siteOrigin}/`,
+        }
+      : null,
+  });
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 18);
@@ -235,14 +248,9 @@ export default function HomePage() {
             {hasAccountSession ? (
               <UserAccountMenu onLogout={() => setHasAccountSession(false)} />
             ) : (
-              <>
-                <Link className="home-nav-button" to="/login">
-                  {t('home.navLogin')}
-                </Link>
-                <Link className="home-nav-button home-nav-button-primary" to="/login?mode=register">
-                  {t('home.navRegister')}
-                </Link>
-              </>
+              <Link className="home-nav-button home-nav-button-primary" to="/login">
+                {t('common.loginOrRegister')}
+              </Link>
             )}
           </div>
         </div>

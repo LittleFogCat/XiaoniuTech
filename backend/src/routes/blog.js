@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import {
   listPosts,
   listManagePosts,
@@ -20,6 +20,7 @@ import {
   listComments,
   addComment,
   importPosts,
+  updatePostAutosave,
 } from '../services/blogStore.js';
 import { readBearerToken, verifyAuthToken } from '../services/auth.js';
 import User from '../models/User.js';
@@ -69,7 +70,7 @@ router.get('/users/:nickname/posts', async (req, res) => {
   }
 });
 
-router.get('/posts/manage', requireAuth, async (req, res) => {
+router.get('/posts/manage', requirePermission('blog:write'), async (req, res) => {
   try {
     const [posts, trashed] = await Promise.all([
       listManagePosts(req.user.username),
@@ -156,7 +157,7 @@ router.get('/posts/:slug/unpublished', requireAuth, async (req, res) => {
   }
 });
 
-router.post('/posts', requireAuth, async (req, res) => {
+router.post('/posts', requirePermission('blog:write'), async (req, res) => {
   try {
     const post = await createPost(req.user.username, req.body || {});
     res.status(201).json({ post });
@@ -165,7 +166,7 @@ router.post('/posts', requireAuth, async (req, res) => {
   }
 });
 
-router.post('/import', requireAuth, async (req, res) => {
+router.post('/import', requirePermission('blog:write'), async (req, res) => {
   try {
     const result = await importPosts(req.user.username, req.body?.articles || []);
     res.status(result.importedCount > 0 ? 201 : 400).json(result);
@@ -174,7 +175,7 @@ router.post('/import', requireAuth, async (req, res) => {
   }
 });
 
-router.put('/posts/:slug', requireAuth, async (req, res) => {
+router.put('/posts/:slug', requirePermission('blog:update'), async (req, res) => {
   try {
     const post = await updatePost(req.params.slug, req.user.username, req.body || {});
     res.json({ post });
@@ -183,7 +184,16 @@ router.put('/posts/:slug', requireAuth, async (req, res) => {
   }
 });
 
-router.put('/posts/:slug/trash', requireAuth, async (req, res) => {
+router.put('/posts/:slug/autosave', requirePermission('blog:update'), async (req, res) => {
+  try {
+    const autosave = await updatePostAutosave(req.params.slug, req.user.username, req.body || {});
+    res.json({ autosave });
+  } catch (error) {
+    res.status(getStatusCode(error)).json({ error: error.message });
+  }
+});
+
+router.put('/posts/:slug/trash', requirePermission('blog:delete'), async (req, res) => {
   try {
     const result = await trashPost(req.params.slug, req.user.username);
     res.json(result);
@@ -192,7 +202,7 @@ router.put('/posts/:slug/trash', requireAuth, async (req, res) => {
   }
 });
 
-router.put('/posts/:slug/restore', requireAuth, async (req, res) => {
+router.put('/posts/:slug/restore', requirePermission('blog:update'), async (req, res) => {
   try {
     const result = await restorePost(req.params.slug, req.user.username);
     res.json(result);
@@ -201,7 +211,7 @@ router.put('/posts/:slug/restore', requireAuth, async (req, res) => {
   }
 });
 
-router.delete('/posts/:slug', requireAuth, async (req, res) => {
+router.delete('/posts/:slug', requirePermission('blog:delete'), async (req, res) => {
   try {
     const result = await permanentDeletePost(req.params.slug, req.user.username);
     res.json(result);

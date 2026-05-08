@@ -1,28 +1,92 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { processMarkdown } from '../utils/markdown';
 import { useAppShell } from '../contexts/AppShellContext';
 
-export default function MarkdownEditor({ initialTitle = '', initialContent = '', initialTags = [], onSave, onCancel }) {
+function formatAutosaveStatus(state) {
+  switch (state) {
+    case 'saving':
+      return '自动保存中...';
+    case 'saved':
+      return '已自动保存';
+    case 'error':
+      return '自动保存失败';
+    default:
+      return '';
+  }
+}
+
+export default function MarkdownEditor({ initialTitle = '', initialContent = '', initialTags = [], onSave, onCancel, onAutosave = null }) {
   const { t } = useAppShell();
   const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState(initialContent);
   const [tags, setTags] = useState(initialTags.join(', '));
   const [saving, setSaving] = useState(false);
+  const [autosaveState, setAutosaveState] = useState('idle');
+  const lastSavedSnapshotRef = useRef('');
+
+  const parsedTags = useMemo(
+    () => tags
+      .split(/[,，]/)
+      .map((tag) => tag.trim())
+      .filter(Boolean),
+    [tags]
+  );
+
+  const currentSnapshot = useMemo(
+    () => JSON.stringify({
+      title: title.trim(),
+      content,
+      tags: parsedTags,
+    }),
+    [content, parsedTags, title]
+  );
 
   useEffect(() => {
     setTitle(initialTitle);
     setContent(initialContent);
     setTags(initialTags.join(', '));
+    lastSavedSnapshotRef.current = JSON.stringify({
+      title: initialTitle.trim(),
+      content: initialContent,
+      tags: initialTags,
+    });
+    setAutosaveState('idle');
   }, [initialTitle, initialContent, initialTags]);
 
   function parseTags() {
-    return tags
-      .split(/[,，]/)
-      .map((t) => t.trim())
-      .filter(Boolean);
+    return parsedTags;
   }
+
+  useEffect(() => {
+    if (!onAutosave) {
+      return undefined;
+    }
+
+    if (currentSnapshot === lastSavedSnapshotRef.current) {
+      return undefined;
+    }
+
+    const timerId = window.setTimeout(async () => {
+      setAutosaveState('saving');
+      try {
+        await onAutosave({
+          title: title.trim(),
+          content,
+          tags: parsedTags,
+        });
+        lastSavedSnapshotRef.current = currentSnapshot;
+        setAutosaveState('saved');
+      } catch (error) {
+        setAutosaveState('error');
+      }
+    }, 1000);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [content, currentSnapshot, onAutosave, parsedTags, title]);
 
   async function handlePublish() {
     if (!title.trim() || !content.trim()) return;
@@ -71,6 +135,9 @@ export default function MarkdownEditor({ initialTitle = '', initialContent = '',
             >
               {t('common.cancel')}
             </button>
+          )}
+          {onAutosave && autosaveState !== 'idle' && (
+            <span className="text-xs text-[color:var(--text-faint)] sm:text-sm">{formatAutosaveStatus(autosaveState)}</span>
           )}
           <button
             onClick={handleDraft}

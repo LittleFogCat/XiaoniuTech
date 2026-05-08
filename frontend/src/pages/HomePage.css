@@ -269,8 +269,7 @@
 .status-panel-head,
 .status-list,
 .hero-orbit-card,
-.link-card,
-.site-footer {
+.link-card {
   border: 1px solid var(--surface-border);
   background: var(--surface-bg);
   box-shadow: var(--surface-shadow);
@@ -924,11 +923,16 @@ html[data-theme='dark'] .wechat-popover img {
   z-index: 2;
   width: var(--page-width);
   margin: 0 auto;
-  padding: 0 0 32px;
+  padding: 0 0 54px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
   color: var(--text-muted);
   font-size: 13px;
   letter-spacing: 0.06em;
@@ -1043,7 +1047,7 @@ html[data-theme='dark'] .wechat-popover img {
     width: min(100vw - 20px, 100%);
     flex-direction: column;
     align-items: flex-start;
-    padding-bottom: 24px;
+    padding-bottom: 54px;
   }
 }
 
@@ -1337,7 +1341,7 @@ html[data-theme='dark'] .hero-orbit-card.is-supernova .hero-orbit-core {
 
 .site-footer {
   align-items: center;
-  padding: 18px 22px 22px;
+  padding: 0 0 54px;
 }
 
 .site-footer p {
@@ -1594,7 +1598,7 @@ html[data-theme='light'] .link-card:focus-visible {
   .site-footer {
     align-items: center;
     text-align: center;
-    padding: 18px 18px 22px;
+    padding: 0 0 54px;
   }
 
   .footer-contact-row {

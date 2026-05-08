@@ -89,7 +89,9 @@ export async function verifyRegistration(email, code) {
 }
 
 export async function fetchModels() {
-  const res = await fetch(`${API_BASE}/models`);
+  const res = await fetch(`${API_BASE}/models`, {
+    headers: getAuthHeaders(),
+  });
   if (!res.ok) {
     await throwRequestError(res, 'Failed to fetch models');
   }
@@ -98,7 +100,9 @@ export async function fetchModels() {
 }
 
 export async function fetchIdentities() {
-  const res = await fetch(`${API_BASE}/identities`);
+  const res = await fetch(`${API_BASE}/identities`, {
+    headers: getAuthHeaders(),
+  });
   if (!res.ok) {
     await throwRequestError(res, 'Failed to fetch identities');
   }
@@ -168,9 +172,9 @@ export async function deleteChat(chatId) {
 export async function* streamChat(model, messages, options = {}) {
   const res = await fetch(`${API_BASE}/chat`, {
     method: 'POST',
-    headers: {
+    headers: getAuthHeaders({
       'Content-Type': 'application/json',
-    },
+    }),
     body: JSON.stringify({
       model,
       messages,

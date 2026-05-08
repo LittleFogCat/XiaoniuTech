@@ -5,12 +5,25 @@ import remarkGfm from 'remark-gfm';
 import { processMarkdown } from '../utils/markdown';
 import BlogHeader from '../components/BlogHeader';
 import BlogComment from '../components/BlogComment';
+import usePageSeo from '../hooks/usePageSeo';
 import { fetchPost, incrementViewCount, isLoggedIn, likePost, unlikePost, isPostLiked, markPostLiked, markPostUnliked } from '../services/blogApi';
 import { useAppShell } from '../contexts/AppShellContext';
+
+function stripMarkdownForSeo(content) {
+  return String(content || '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/[#>*_~\-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 export default function BlogPostPage() {
   const { t, formatDate, formatNumber } = useAppShell();
   const { slug } = useParams();
+  const siteOrigin = typeof window === 'undefined' ? '' : window.location.origin;
   const navigate = useNavigate();
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -19,6 +32,31 @@ export default function BlogPostPage() {
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [likeLoading, setLikeLoading] = useState(false);
+  const seoDescription = (post?.excerpt || stripMarkdownForSeo(post?.content || '') || t('blog.postMissing')).slice(0, 120);
+
+  usePageSeo({
+    title: post ? `${post.title} - ${t('common.blogName')}` : `文章 - ${t('common.blogName')}`,
+    description: seoDescription,
+    canonicalPath: slug ? `/blog/post/${encodeURIComponent(slug)}` : '/blog',
+    image: '/image/niu.jpg',
+    ogType: post?.published ? 'article' : 'website',
+    jsonLd: post && siteOrigin
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'Article',
+          headline: post.title,
+          description: seoDescription,
+          image: `${siteOrigin}/image/niu.jpg`,
+          datePublished: post.publishedAt,
+          dateModified: post.updatedAt || post.publishedAt,
+          author: {
+            '@type': 'Person',
+            name: post.author || 'XiaoNiu',
+          },
+          mainEntityOfPage: `${siteOrigin}/blog/post/${encodeURIComponent(post.slug || slug || '')}`,
+        }
+      : null,
+  });
 
   useEffect(() => {
     if (!slug) return;
@@ -26,7 +64,6 @@ export default function BlogPostPage() {
     fetchPost(slug)
       .then((p) => {
         setPost(p);
-        document.title = p ? `${p.title} - XN Blog` : 'XN Blog';
         setLiked(isPostLiked(slug));
         setLikeCount(p?.likes || 0);
         if (p && p.published && lastViewIncrement.current !== slug) {

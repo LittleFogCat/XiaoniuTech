@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import BlogHeader from '../components/BlogHeader';
+import usePageSeo from '../hooks/usePageSeo';
 import { fetchPosts } from '../services/blogApi';
 import { useAppShell } from '../contexts/AppShellContext';
 
@@ -16,9 +17,12 @@ export default function UserHomePage({ nickname: propNickname }) {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    document.title = nickname ? `${nickname} - ${t('common.blogName')}` : t('blog.pageTitle');
-  }, [nickname, t]);
+  usePageSeo({
+    title: nickname ? `${nickname} - ${t('common.blogName')}` : t('blog.pageTitle'),
+    description: profile?.bio || `${nickname || 'XiaoNiu'} 的技术文章、长期写作与公开发布内容。`,
+    canonicalPath: nickname && nickname !== 'XiaoNiu' ? `/blog/${encodeURIComponent(nickname)}` : '/blog',
+    image: profile?.avatarUrl || '/image/niu.jpg',
+  });
 
   useEffect(() => {
     if (!nickname) return;

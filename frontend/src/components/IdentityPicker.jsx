@@ -62,6 +62,11 @@ export default function IdentityPicker({ identities, chats, onSelectIdentity, on
                             {identity.role}
                           </span>
                         )}
+                        {identity.free && (
+                          <span className="rounded-full border border-[color:var(--success-border)] bg-[var(--success-soft)] px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-[color:var(--success-text)]">
+                            free
+                          </span>
+                        )}
                         {isUsed && (
                           <span className="rounded-full border border-[color:var(--warning-border)] bg-[var(--warning-soft)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--warning-text)]">
                             {t('chat.identityUsed')}

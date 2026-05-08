@@ -1,5 +1,5 @@
 import Chat from '../models/Chat.js';
-import { getIdentityById } from './identityStore.js';
+import { getAgentById } from './agentStore.js';
 
 function createHttpError(statusCode, message) {
   const error = new Error(message);
@@ -68,17 +68,17 @@ async function resolveChatTarget(chatTarget) {
     throw createHttpError(400, '暂不支持该聊天对象');
   }
 
-  const identity = await getIdentityById(id);
-  if (!identity) {
+  const agent = await getAgentById(id);
+  if (!agent) {
     throw createHttpError(400, '所选智能体不存在');
   }
 
   return {
     chatTarget: {
       type: 'identity',
-      id: identity.id,
+      id: agent.id,
     },
-    identity,
+    identity: agent,
   };
 }
 

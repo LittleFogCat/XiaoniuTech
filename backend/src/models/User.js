@@ -33,6 +33,13 @@ const UserSchema = new mongoose.Schema(
       default: '',
       maxlength: 200,
     },
+    groups: {
+      type: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'UserGroup',
+      }],
+      default: [],
+    },
     priority: {
       type: Number,
       default: 10,

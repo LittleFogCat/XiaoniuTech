@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import BlogHeader from '../components/BlogHeader';
+import usePageSeo from '../hooks/usePageSeo';
 import { fetchManagePosts, trashPost, restorePost, deletePostPermanently, isLoggedIn, updatePost } from '../services/blogApi';
 import { useAppShell } from '../contexts/AppShellContext';
 
@@ -15,8 +16,13 @@ export default function BlogManagePage() {
   const [actionLoading, setActionLoading] = useState(null);
   const navigate = useNavigate();
 
+  usePageSeo({
+    title: t('blog.managePageTitle'),
+    description: '博客文章管理、回收站与批量操作后台页。',
+    robots: 'noindex, nofollow',
+  });
+
   useEffect(() => {
-    document.title = t('blog.managePageTitle');
     if (!isLoggedIn()) {
       navigate('/chat', { replace: true });
       return;

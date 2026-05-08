@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AvatarUpload from '../components/AvatarUpload';
+import usePageSeo from '../hooks/usePageSeo';
 import { fetchUserProfile, updateUserProfile, isLoggedIn, getUsernameFromToken } from '../services/blogApi';
 import { useAppShell } from '../contexts/AppShellContext';
 
@@ -23,9 +24,14 @@ export default function SettingsPage() {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
+  usePageSeo({
+    title: t('settings.pageTitle'),
+    description: '管理账号昵称、简介、头像与密码设置。',
+    robots: 'noindex, nofollow',
+  });
+
   useEffect(() => {
     console.log(LOG_PREFIX, 'page mounted');
-    document.title = t('settings.pageTitle');
     if (!isLoggedIn()) {
       console.log(LOG_PREFIX, 'not logged in, redirecting to chat');
       navigate('/chat', { replace: true });

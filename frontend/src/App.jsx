@@ -8,17 +8,26 @@ import BlogEditorPage from './pages/BlogEditorPage';
 import BlogManagePage from './pages/BlogManagePage';
 import SettingsPage from './pages/SettingsPage';
 import LoginPage from './pages/LoginPage';
+import ChatManagePage from './pages/ChatManagePage';
+import PermissionManagePage from './pages/PermissionManagePage';
+import StatisticsPage from './pages/StatisticsPage';
 import UserHomePage from './pages/UserHomePage';
 import { AppShellProvider } from './contexts/AppShellContext';
+import StatisticsTracker from './components/StatisticsTracker';
 
 export default function App() {
   return (
     <AppShellProvider>
       <BrowserRouter>
+        <StatisticsTracker />
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/chat/manage" element={<ChatManagePage />} />
+          <Route path="/permission" element={<Navigate to="/permissions" replace />} />
+          <Route path="/permissions" element={<PermissionManagePage />} />
+          <Route path="/statistics" element={<StatisticsPage />} />
           <Route
             path="/games"
             element={<PlaceholderPage titleKey="placeholder.gamesTitle" descriptionKey="placeholder.gamesDescription" />}

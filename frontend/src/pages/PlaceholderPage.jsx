@@ -1,15 +1,18 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAppShell } from '../contexts/AppShellContext';
+import usePageSeo from '../hooks/usePageSeo';
 
 export default function PlaceholderPage({ titleKey, descriptionKey }) {
   const { t } = useAppShell();
   const title = t(titleKey);
   const description = t(descriptionKey);
 
-  useEffect(() => {
-    document.title = `${title} | ${t('common.siteName')}`;
-  }, [t, title]);
+  usePageSeo({
+    title: `${title} - ${t('common.siteName')}`,
+    description,
+    robots: 'noindex, nofollow',
+  });
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--page-bg)] px-6 py-12 text-[color:var(--text-primary)]">

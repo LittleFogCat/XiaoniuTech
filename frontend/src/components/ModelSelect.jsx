@@ -3,11 +3,21 @@ import { useAppShell } from '../contexts/AppShellContext';
 
 export default function ModelSelect({ models, value, onChange }) {
   const { t } = useAppShell();
+  const activeModel = models.find((model) => model.id === value) || null;
 
   return (
     <Select.Root value={value} onValueChange={onChange}>
       <Select.Trigger className="inline-flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-2xl border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] px-3 text-left text-sm font-medium text-[color:var(--text-primary)] shadow-[var(--surface-shadow)] outline-none transition hover:bg-[var(--surface-hover)] focus:border-[color:var(--accent-border)] data-[placeholder]:text-[color:var(--text-faint)] sm:h-11 sm:min-w-[235px] sm:px-4">
-        <Select.Value className="truncate" placeholder={t('chat.modelPlaceholder')} />
+        {activeModel ? (
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="truncate">{activeModel.name}</span>
+            {activeModel.free && (
+              <span className="rounded-full border border-[color:var(--success-border)] bg-[var(--success-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-[color:var(--success-text)]">free</span>
+            )}
+          </div>
+        ) : (
+          <span className="truncate text-[color:var(--text-faint)]">{t('chat.modelPlaceholder')}</span>
+        )}
         <Select.Icon className="shrink-0 text-[color:var(--text-faint)] transition group-data-[state=open]:text-[color:var(--accent-solid)]">
           <svg width="14" height="14" viewBox="0 0 12 12" fill="currentColor">
             <path d="M2.5 4.5L6 8L9.5 4.5" />
@@ -34,7 +44,12 @@ export default function ModelSelect({ models, value, onChange }) {
                 <span className="inline-flex shrink-0 items-center justify-center rounded-full border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--accent-solid)]">
                   {model.provider}
                 </span>
-                <Select.ItemText>{model.name}</Select.ItemText>
+                <div className="flex min-w-0 items-center gap-2">
+                  <Select.ItemText>{model.name}</Select.ItemText>
+                  {model.free && (
+                    <span className="rounded-full border border-[color:var(--success-border)] bg-[var(--success-soft)] px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-[color:var(--success-text)]">free</span>
+                  )}
+                </div>
                 <Select.ItemIndicator className="ml-auto shrink-0 text-[color:var(--accent-solid)]">
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="3.5 8.5 6.5 11.5 12.5 5.5" />

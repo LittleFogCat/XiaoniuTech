@@ -1,5 +1,28 @@
 import mongoose from 'mongoose';
 
+const autosaveSchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    tags: {
+      type: [String],
+      default: [],
+    },
+    content: {
+      type: String,
+      default: '',
+    },
+    updatedAt: {
+      type: Date,
+      default: null,
+    },
+  },
+  { _id: false }
+);
+
 const blogPostSchema = new mongoose.Schema(
   {
     title: {
@@ -61,6 +84,10 @@ const blogPostSchema = new mongoose.Schema(
     commentCount: {
       type: Number,
       default: 0,
+    },
+    autosave: {
+      type: autosaveSchema,
+      default: null,
     },
   },
   {
