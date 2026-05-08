@@ -1,6 +1,6 @@
 # Chat 模块
 
-所有路径前缀 `/api`。
+所有路径前缀 `/api/chat`。
 
 ## 聊天 (SSE 流式)
 
@@ -50,7 +50,7 @@ data: [DONE]
 
 ## 模型列表
 
-### GET /api/models
+### GET /api/chat/models
 
 ```json
 {
@@ -63,7 +63,7 @@ data: [DONE]
 
 ## 智能体列表
 
-### GET /api/identities
+### GET /api/chat/agents
 
 ```json
 {
@@ -81,11 +81,11 @@ data: [DONE]
 
 | 方法 | 路径 | 权限 | 说明 |
 |------|------|------|------|
-| GET | /api/chat-management/models | `chat:manage_model` | 列出模型 |
-| POST | /api/chat-management/models | `chat:manage_model` | 新增模型 |
-| PUT | /api/chat-management/models/:id | `chat:manage_model` | 更新模型 |
-| DELETE | /api/chat-management/models/:id | `chat:manage_model` | 删除模型 |
-| GET | /api/chat-management/agents | `chat:manage_agent` | 列出智能体 |
-| POST | /api/chat-management/agents | `chat:manage_agent` | 新增智能体 |
-| PUT | /api/chat-management/agents/:id | `chat:manage_agent` | 更新智能体 |
-| DELETE | /api/chat-management/agents/:id | `chat:manage_agent` | 删除智能体 |
+| GET | /api/chat/management/models | `chat:manage_model` | 列出模型 |
+| POST | /api/chat/management/models | `chat:manage_model` | 新增模型 |
+| PUT | /api/chat/management/models/:id | `chat:manage_model` | 更新模型 |
+| DELETE | /api/chat/management/models/:id | `chat:manage_model` | 删除模型 |
+| GET | /api/chat/management/agents | `chat:manage_agent` | 列出智能体 |
+| POST | /api/chat/management/agents | `chat:manage_agent` | 新增智能体 |
+| PUT | /api/chat/management/agents/:id | `chat:manage_agent` | 更新智能体 |
+| DELETE | /api/chat/management/agents/:id | `chat:manage_agent` | 删除智能体 |
