@@ -1,122 +1,91 @@
-# Chat 模块接口
+# Chat 模块
 
-## 获取模型列表
+所有路径前缀 `/api`。
 
-### GET /api/models
-
-获取所有可用的 AI 模型列表
-
-**响应示例**
-```json
-{
-  "models": [
-    {
-      "id": "glm-5.1",
-      "name": "GLM-5.1",
-      "provider": "zai",
-      "reasoning": true,
-      "contextWindow": 202800,
-      "maxTokens": 131100
-    }
-  ]
-}
-```
-
----
-
-## 获取智能体列表
-
-### GET /api/identities
-
-获取当前可用的智能体列表。该接口只返回对外展示字段，不返回人格定义原文。
-智能体运行时数据来自 MongoDB；部署时会将 `conf/backend/identities/identities.json` 中的元数据与 `conf/backend/identities/persona/*.md` 中的人格正文作为初始化种子导入数据库，后续以数据库记录为准。
-
-**响应示例**
-```json
-{
-  "identities": [
-    {
-      "id": "小奶茉",
-      "name": "小奶茉",
-      "role": "猫娘助手",
-      "description": "温柔、耐心、带一点灵气的聊天搭子。",
-      "avatarUrl": ""
-    }
-  ]
-}
-```
-
-**响应字段说明**
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | string | 智能体唯一 ID；默认初始化时由 `identities.json` 中的 `id` 决定，运行时以数据库记录为准 |
-| name | string | 智能体名称，所有智能体之间不可重名 |
-| role | string | 智能体角色标签，可为空 |
-| description | string | 智能体简介 |
-| avatarUrl | string | 头像 URL，可为空 |
-
----
-
-## 聊天接口
+## 聊天 (SSE 流式)
 
 ### POST /api/chat
 
-流式聊天接口
+不要求认证（游客可访问），但有模型/智能体权限控制。
 
-**请求体**
 ```json
+// Request
 {
-  "model": "glm-5.1",
-  "messages": [
-    { "role": "user", "content": "你好" }
-  ],
-  "chatTarget": {
-    "type": "identity",
-    "id": "xiaonaimo"
-  },
+  "model": "deepseek/deepseek-v4-flash",
+  "messages": [{ "role": "user", "content": "你好" }],
+  "chatTarget": { "type": "identity", "id": "xiaonaimo" },
   "max_tokens": 4096,
   "temperature": 0.7,
   "top_p": 1.0
 }
 ```
 
-**参数说明**
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| model | string | 是 | 模型 ID |
+| model | string | 是 | `provider/modelId` 格式 |
 | messages | array | 是 | 消息列表 |
-| chatTarget | object | 否 | 对话目标；为空时为普通聊天，传入 identity 时启用智能体人格 |
-| max_tokens | number | 否 | 最大生成 token 数，默认 4096 |
-| temperature | number | 否 | 温度参数，默认 0.7 |
-| top_p | number | 否 | top_p 参数，默认 1.0 |
+| chatTarget | object | 否 | `{ type, id }`，type 为 `identity` 时注入智能体人格 |
+| max_tokens | number | 否 | 默认 4096 |
+| temperature | number | 否 | 默认 0.7 |
+| top_p | number | 否 | 默认 1.0 |
 
-**chatTarget 字段说明**
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| type | string | 是 | 当前仅支持 `identity` |
-| id | string | 是 | 智能体 ID，对应 `/api/identities` 中返回的 `id` |
-
-当 `chatTarget.type = identity` 时，后端会从数据库读取对应智能体的人格定义，并将其注入到系统提示词后再请求模型。
-
-**响应 (SSE 流式)**
+**响应 (SSE)**
 ```
-data: {"content": "你"}
-data: {"content": "好"}
-data: {"content": "！"}
+data: {"content":"你"}
 data: [DONE]
 ```
 
-**响应字段说明**
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| content | string | 生成的文本内容片段 |
-| [DONE] | string | 流式结束标记 |
+## 聊天记录 CRUD
 
-**错误响应**
+所有接口需要 `chat:view` 权限。
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/chats | 列出当前用户聊天 |
+| GET | /api/chats/current | 最近聊天，支持 `?id=` |
+| GET | /api/chats/:id | 获取单个 |
+| POST | /api/chats | 创建 |
+| PUT | /api/chats/:id | 更新 |
+| DELETE | /api/chats/:id | 删除 |
+
+## 模型列表
+
+### GET /api/models
+
 ```json
 {
-  "error": "Model not found"
+  "models": [
+    { "id": "deepseek/deepseek-v4-flash", "name": "deepseek-v4-flash", "provider": "deepseek", "reasoning": false, "free": true, "contextWindow": 128000, "maxTokens": 8192 }
+  ],
+  "defaultModel": "deepseek/deepseek-v4-flash"
 }
 ```
 
-常见错误包括：模型不存在、智能体不存在、数据库中的智能体名称冲突、或请求体缺少必要字段。
+## 智能体列表
+
+### GET /api/identities
+
+```json
+{
+  "identities": [
+    { "id": "agent-id", "name": "名称", "role": "标签", "description": "简介", "avatarUrl": "", "free": true }
+  ]
+}
+```
+
+智能体种子文件位于 `conf/backend/identities/`，后端启动时自动导入 MongoDB，已存在记录不覆盖。
+
+## 聊天管理 (admin)
+
+所有接口需要对应权限。
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| GET | /api/chat-management/models | `chat:manage_model` | 列出模型 |
+| POST | /api/chat-management/models | `chat:manage_model` | 新增模型 |
+| PUT | /api/chat-management/models/:id | `chat:manage_model` | 更新模型 |
+| DELETE | /api/chat-management/models/:id | `chat:manage_model` | 删除模型 |
+| GET | /api/chat-management/agents | `chat:manage_agent` | 列出智能体 |
+| POST | /api/chat-management/agents | `chat:manage_agent` | 新增智能体 |
+| PUT | /api/chat-management/agents/:id | `chat:manage_agent` | 更新智能体 |
+| DELETE | /api/chat-management/agents/:id | `chat:manage_agent` | 删除智能体 |
