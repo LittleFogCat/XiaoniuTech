@@ -20,6 +20,8 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD}
+    ports:
+      # - "27017:27017" # 调试时开启，平时关闭
     volumes:
       - mongo-data:/data/db
     networks:

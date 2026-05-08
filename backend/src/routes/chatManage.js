@@ -25,17 +25,17 @@ router.post('/chat/management/models', requirePermission('chat:manage_model'), a
   }
 });
 
-router.put('/chat/management/models/:id', requirePermission('chat:manage_model'), async (req, res) => {
+router.put('/chat/management/models/*', requirePermission('chat:manage_model'), async (req, res) => {
   try {
-    res.json({ model: await upsertChatModel(req.body || {}, req.params.id) });
+    res.json({ model: await upsertChatModel(req.body || {}, req.params[0]) });
   } catch (error) {
     res.status(getStatusCode(error)).json({ error: error.message });
   }
 });
 
-router.delete('/chat/management/models/:id', requirePermission('chat:manage_model'), async (req, res) => {
+router.delete('/chat/management/models/*', requirePermission('chat:manage_model'), async (req, res) => {
   try {
-    res.json(await deleteChatModel(req.params.id));
+    res.json(await deleteChatModel(req.params[0]));
   } catch (error) {
     res.status(getStatusCode(error)).json({ error: error.message });
   }
