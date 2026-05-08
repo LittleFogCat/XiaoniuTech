@@ -15,6 +15,7 @@ import {
   updateChatManagementModel,
 } from '../services/adminApi';
 import usePageSeo from '../hooks/usePageSeo';
+import { useAppShell } from '../contexts/AppShellContext';
 import { isLoggedIn } from '../services/blogApi';
 
 const EMPTY_MODEL_DRAFT = {
@@ -81,12 +82,23 @@ function agentToDraft(agent) {
   };
 }
 
+function Field({ id, label, children, className = '' }) {
+  return (
+    <div className={className}>
+      <label htmlFor={id} className="mb-1.5 block text-xs font-medium text-[color:var(--text-secondary)]">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
 function HelpTooltip({ label, children }) {
   return (
     <div className="group relative shrink-0">
       <button
         type="button"
-        aria-label={`${label}说明`}
+        aria-label={`${label}`}
         className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[color:var(--surface-border)] bg-[var(--surface-bg)] text-[11px] font-semibold text-[color:var(--text-faint)] transition hover:border-[color:var(--accent-border)] hover:text-[color:var(--text-primary)]"
       >
         ?
@@ -122,6 +134,7 @@ function JsonTextareaField({ id, label, help, value, onChange, rows, placeholder
 export default function ChatManagePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { t } = useAppShell();
   const hasSession = isLoggedIn();
   const [access, setAccess] = useState(null);
   const [models, setModels] = useState([]);
@@ -143,8 +156,8 @@ export default function ChatManagePage() {
   const selectedAgent = agents.find((item) => item.id === selectedAgentId) || null;
 
   usePageSeo({
-    title: '聊天管理 - XiaoNiu Tech',
-    description: '管理聊天模型、智能体和默认配置的后台页面。',
+    title: `${t('chatManage.pageTitle')} - XiaoNiu Tech`,
+    description: t('chatManage.pageTitle'),
     robots: 'noindex, nofollow',
   });
 
@@ -178,7 +191,7 @@ export default function ChatManagePage() {
       const nextCanManageModels = me.access?.permissions?.includes('chat:manage_model');
       const nextCanManageAgents = me.access?.permissions?.includes('chat:manage_agent');
       if (!nextCanManageModels && !nextCanManageAgents) {
-        setError('当前账号没有聊天管理权限');
+        setError(t('chatManage.noAccess'));
         setLoading(false);
         return;
       }
@@ -198,7 +211,7 @@ export default function ChatManagePage() {
         setSelectedAgentId(agentResponse.agents[0].id);
       }
     } catch (nextError) {
-      setError(nextError.message || '加载聊天管理数据失败');
+      setError(nextError.message || 'Failed');
     } finally {
       setLoading(false);
     }
@@ -258,15 +271,15 @@ export default function ChatManagePage() {
 
       if (selectedModelId) {
         await updateChatManagementModel(selectedModelId, payload);
-        setMessage('模型配置已更新');
+        setMessage(t('chatManage.modelUpdated'));
       } else {
         await createChatManagementModel(payload);
-        setMessage('模型配置已创建');
+        setMessage(t('chatManage.modelCreated'));
       }
 
       await loadData();
     } catch (nextError) {
-      setError(nextError.message || '保存模型配置失败');
+      setError(nextError.message || 'Failed');
     } finally {
       setSaving(false);
     }
@@ -276,7 +289,7 @@ export default function ChatManagePage() {
     if (!selectedModelId) {
       return;
     }
-    if (!window.confirm(`确定删除模型“${selectedModel?.name || selectedModelId}”吗？`)) {
+    if (!window.confirm(t('chatManage.deleteModelConfirm', { name: selectedModel?.name || selectedModelId }))) {
       return;
     }
     setSaving(true);
@@ -285,10 +298,10 @@ export default function ChatManagePage() {
     try {
       await deleteChatManagementModel(selectedModelId);
       resetModelDraft();
-      setMessage('模型配置已删除');
+      setMessage(t('chatManage.modelDeleted'));
       await loadData();
     } catch (nextError) {
-      setError(nextError.message || '删除模型配置失败');
+      setError(nextError.message || 'Failed');
     } finally {
       setSaving(false);
     }
@@ -312,15 +325,15 @@ export default function ChatManagePage() {
 
       if (selectedAgentId) {
         await updateChatManagementAgent(selectedAgentId, payload);
-        setMessage('智能体已更新');
+        setMessage(t('chatManage.agentUpdated'));
       } else {
         await createChatManagementAgent(payload);
-        setMessage('智能体已创建');
+        setMessage(t('chatManage.agentCreated'));
       }
 
       await loadData();
     } catch (nextError) {
-      setError(nextError.message || '保存智能体失败');
+      setError(nextError.message || 'Failed');
     } finally {
       setSaving(false);
     }
@@ -330,7 +343,7 @@ export default function ChatManagePage() {
     if (!selectedAgentId) {
       return;
     }
-    if (!window.confirm(`确定删除智能体“${selectedAgent?.name || selectedAgentId}”吗？`)) {
+    if (!window.confirm(t('chatManage.deleteAgentConfirm', { name: selectedAgent?.name || selectedAgentId }))) {
       return;
     }
     setSaving(true);
@@ -339,10 +352,10 @@ export default function ChatManagePage() {
     try {
       await deleteChatManagementAgent(selectedAgentId);
       resetAgentDraft();
-      setMessage('智能体已删除');
+      setMessage(t('chatManage.agentDeleted'));
       await loadData();
     } catch (nextError) {
-      setError(nextError.message || '删除智能体失败');
+      setError(nextError.message || 'Failed');
     } finally {
       setSaving(false);
     }
@@ -355,8 +368,8 @@ export default function ChatManagePage() {
           <div className="flex items-center gap-3">
             <BackHomeButton iconOnly />
             <div>
-              <div className="text-xs uppercase tracking-[0.28em] text-[color:var(--accent-solid)]">Chat Module</div>
-              <h1 className="text-xl font-semibold">聊天管理</h1>
+              <div className="text-xs uppercase tracking-[0.28em] text-[color:var(--accent-solid)]">{t('chatManage.chatModule')}</div>
+              <h1 className="text-xl font-semibold">{t('chatManage.pageTitle')}</h1>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -370,12 +383,12 @@ export default function ChatManagePage() {
         <div className="mb-5 flex flex-wrap gap-2">
           {canManageModels && (
             <button type="button" onClick={() => updateTab('models')} className={`rounded-xl px-4 py-2 text-sm transition ${currentTab === 'models' ? 'bg-[var(--accent-soft)] text-[color:var(--text-primary)]' : 'bg-[var(--surface-bg)] text-[color:var(--text-secondary)] hover:bg-[var(--surface-hover)]'}`}>
-              模型配置
+              {t('chatManage.modelConfig')}
             </button>
           )}
           {canManageAgents && (
             <button type="button" onClick={() => updateTab('agents')} className={`rounded-xl px-4 py-2 text-sm transition ${currentTab === 'agents' ? 'bg-[var(--accent-soft)] text-[color:var(--text-primary)]' : 'bg-[var(--surface-bg)] text-[color:var(--text-secondary)] hover:bg-[var(--surface-hover)]'}`}>
-              智能体配置
+              {t('chatManage.agentConfig')}
             </button>
           )}
         </div>
@@ -387,13 +400,13 @@ export default function ChatManagePage() {
         )}
 
         {loading ? (
-          <div className="rounded-3xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-4 py-12 text-center text-[color:var(--text-muted)]">加载聊天管理数据中...</div>
+          <div className="rounded-3xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-4 py-12 text-center text-[color:var(--text-muted)]">{t('common.loading')}</div>
         ) : error && !access ? (
           <div className="rounded-3xl border border-[color:var(--danger-border)] bg-[var(--danger-soft)] px-4 py-8 text-[color:var(--danger-text)]">{error}</div>
         ) : currentTab === 'models' ? (
           <div className="grid gap-5 xl:grid-cols-[20rem_minmax(0,1fr)]">
             <aside className="rounded-3xl border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] p-3">
-              <button type="button" onClick={resetModelDraft} className="mb-3 w-full rounded-2xl border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)]">新建模型</button>
+              <button type="button" onClick={resetModelDraft} className="mb-3 w-full rounded-2xl border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)]">{t('chatManage.newModel')}</button>
               {models.map((model) => (
                 <button key={model.id} type="button" onClick={() => setSelectedModelId(model.id)} className={`mb-2 w-full rounded-2xl px-4 py-3 text-left transition ${selectedModelId === model.id ? 'bg-[var(--accent-soft)] text-[color:var(--text-primary)]' : 'bg-[var(--surface-bg)] text-[color:var(--text-secondary)] hover:bg-[var(--surface-hover)]'}`}>
                   <div className="flex items-center justify-between gap-2">
@@ -407,13 +420,25 @@ export default function ChatManagePage() {
 
             <section className="rounded-3xl border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] p-5">
               <div className="grid gap-4 lg:grid-cols-2">
-                <input value={modelDraft.provider} onChange={(event) => setModelDraft((previous) => ({ ...previous, provider: event.target.value }))} placeholder="provider，例如 deepseek" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
-                <input value={modelDraft.modelId} onChange={(event) => setModelDraft((previous) => ({ ...previous, modelId: event.target.value }))} placeholder="modelId，例如 deepseek-chat" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
-                <input value={modelDraft.name} onChange={(event) => setModelDraft((previous) => ({ ...previous, name: event.target.value }))} placeholder="显示名称" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none lg:col-span-2" />
-                <input value={modelDraft.inputText} onChange={(event) => setModelDraft((previous) => ({ ...previous, inputText: event.target.value }))} placeholder="输入类型，逗号分隔" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
+                <Field id="model-provider" label={t('chatManage.modelProvider')}>
+                  <input id="model-provider" value={modelDraft.provider} onChange={(event) => setModelDraft((previous) => ({ ...previous, provider: event.target.value }))} placeholder="例如 deepseek" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
+                </Field>
+                <Field id="model-modelId" label={t('chatManage.modelId')}>
+                  <input id="model-modelId" value={modelDraft.modelId} onChange={(event) => setModelDraft((previous) => ({ ...previous, modelId: event.target.value }))} placeholder="例如 deepseek-chat" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
+                </Field>
+                <Field id="model-name" label={t('chatManage.modelDisplayName')} className="lg:col-span-2">
+                  <input id="model-name" value={modelDraft.name} onChange={(event) => setModelDraft((previous) => ({ ...previous, name: event.target.value }))} placeholder="例如 DeepSeek Chat" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
+                </Field>
+                <Field id="model-input" label={t('chatManage.modelInputType')}>
+                  <input id="model-input" value={modelDraft.inputText} onChange={(event) => setModelDraft((previous) => ({ ...previous, inputText: event.target.value }))} placeholder="text" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
+                </Field>
                 <div className="grid grid-cols-2 gap-3">
-                  <input value={modelDraft.contextWindow} onChange={(event) => setModelDraft((previous) => ({ ...previous, contextWindow: event.target.value }))} placeholder="上下文窗口" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
-                  <input value={modelDraft.maxTokens} onChange={(event) => setModelDraft((previous) => ({ ...previous, maxTokens: event.target.value }))} placeholder="最大输出 tokens" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
+                  <Field id="model-contextWindow" label={t('chatManage.modelContextWindow')}>
+                    <input id="model-contextWindow" value={modelDraft.contextWindow} onChange={(event) => setModelDraft((previous) => ({ ...previous, contextWindow: event.target.value }))} placeholder="例如 128000" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
+                  </Field>
+                  <Field id="model-maxTokens" label={t('chatManage.modelMaxTokens')}>
+                    <input id="model-maxTokens" value={modelDraft.maxTokens} onChange={(event) => setModelDraft((previous) => ({ ...previous, maxTokens: event.target.value }))} placeholder="例如 8192" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
+                  </Field>
                 </div>
                 <label className="flex items-center gap-3 rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-3 py-2.5 text-sm text-[color:var(--text-secondary)]">
                   <input type="checkbox" checked={modelDraft.free} onChange={(event) => setModelDraft((previous) => ({ ...previous, free: event.target.checked }))} />
@@ -429,7 +454,7 @@ export default function ChatManagePage() {
                 </label>
                 <JsonTextareaField
                   id="model-provider-config"
-                  label="提供商请求配置（providerConfig）"
+                  label={t('chatManage.providerConfig')}
                   value={modelDraft.providerConfigJson}
                   onChange={(event) => setModelDraft((previous) => ({ ...previous, providerConfigJson: event.target.value }))}
                   rows={10}
@@ -444,7 +469,7 @@ export default function ChatManagePage() {
                 />
                 <JsonTextareaField
                   id="model-compat-config"
-                  label="兼容扩展参数（compat）"
+                  label={t('chatManage.compatConfig')}
                   value={modelDraft.compatJson}
                   onChange={(event) => setModelDraft((previous) => ({ ...previous, compatJson: event.target.value }))}
                   rows={8}
@@ -460,9 +485,9 @@ export default function ChatManagePage() {
               </div>
 
               <div className="mt-5 flex flex-wrap gap-3">
-                <button type="button" disabled={saving} onClick={handleSaveModel} className="rounded-xl border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-4 py-2.5 text-sm text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-40">保存模型</button>
+                <button type="button" disabled={saving} onClick={handleSaveModel} className="rounded-xl border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-4 py-2.5 text-sm text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-40">{t('chatManage.saveModel')}</button>
                 {selectedModelId && (
-                  <button type="button" disabled={saving} onClick={handleDeleteModel} className="rounded-xl border border-[color:var(--danger-border)] bg-[var(--danger-soft)] px-4 py-2.5 text-sm text-[color:var(--danger-text)] transition hover:opacity-85 disabled:opacity-40">删除模型</button>
+                  <button type="button" disabled={saving} onClick={handleDeleteModel} className="rounded-xl border border-[color:var(--danger-border)] bg-[var(--danger-soft)] px-4 py-2.5 text-sm text-[color:var(--danger-text)] transition hover:opacity-85 disabled:opacity-40">{t('chatManage.deleteModel')}</button>
                 )}
               </div>
             </section>
@@ -470,7 +495,7 @@ export default function ChatManagePage() {
         ) : (
           <div className="grid gap-5 xl:grid-cols-[20rem_minmax(0,1fr)]">
             <aside className="rounded-3xl border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] p-3">
-              <button type="button" onClick={resetAgentDraft} className="mb-3 w-full rounded-2xl border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)]">新建智能体</button>
+              <button type="button" onClick={resetAgentDraft} className="mb-3 w-full rounded-2xl border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)]">{t('chatManage.newAgent')}</button>
               {agents.map((agent) => (
                 <button key={agent.id} type="button" onClick={() => setSelectedAgentId(agent.id)} className={`mb-2 w-full rounded-2xl px-4 py-3 text-left transition ${selectedAgentId === agent.id ? 'bg-[var(--accent-soft)] text-[color:var(--text-primary)]' : 'bg-[var(--surface-bg)] text-[color:var(--text-secondary)] hover:bg-[var(--surface-hover)]'}`}>
                   <div className="flex items-center justify-between gap-2">
@@ -484,13 +509,27 @@ export default function ChatManagePage() {
 
             <section className="rounded-3xl border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] p-5">
               <div className="grid gap-4 lg:grid-cols-2">
-                <input value={agentDraft.id} onChange={(event) => setAgentDraft((previous) => ({ ...previous, id: event.target.value }))} placeholder="智能体 ID" disabled={Boolean(selectedAgentId)} className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none disabled:opacity-50" />
-                <input value={agentDraft.name} onChange={(event) => setAgentDraft((previous) => ({ ...previous, name: event.target.value }))} placeholder="智能体名称" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
-                <input value={agentDraft.role} onChange={(event) => setAgentDraft((previous) => ({ ...previous, role: event.target.value }))} placeholder="角色" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
-                <input value={agentDraft.avatarUrl} onChange={(event) => setAgentDraft((previous) => ({ ...previous, avatarUrl: event.target.value }))} placeholder="头像 URL" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
-                <textarea value={agentDraft.description} onChange={(event) => setAgentDraft((previous) => ({ ...previous, description: event.target.value }))} rows={3} placeholder="简介" className="w-full rounded-2xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-3 outline-none lg:col-span-2" />
-                <textarea value={agentDraft.systemPrompt} onChange={(event) => setAgentDraft((previous) => ({ ...previous, systemPrompt: event.target.value }))} rows={6} placeholder="系统提示词，可写工具定义" className="w-full rounded-2xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-3 outline-none lg:col-span-2" />
-                <textarea value={agentDraft.personaDefinition} onChange={(event) => setAgentDraft((previous) => ({ ...previous, personaDefinition: event.target.value }))} rows={14} placeholder="人格定义" className="w-full rounded-2xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-3 outline-none lg:col-span-2" />
+                <Field id="agent-id" label={t('chatManage.agentId')}>
+                  <input id="agent-id" value={agentDraft.id} onChange={(event) => setAgentDraft((previous) => ({ ...previous, id: event.target.value }))} placeholder="例如 xiaonaimo" disabled={Boolean(selectedAgentId)} className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none disabled:opacity-50" />
+                </Field>
+                <Field id="agent-name" label={t('chatManage.agentName')}>
+                  <input id="agent-name" value={agentDraft.name} onChange={(event) => setAgentDraft((previous) => ({ ...previous, name: event.target.value }))} placeholder="例如 小奶茉" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
+                </Field>
+                <Field id="agent-role" label={t('chatManage.agentRole')}>
+                  <input id="agent-role" value={agentDraft.role} onChange={(event) => setAgentDraft((previous) => ({ ...previous, role: event.target.value }))} placeholder="例如 猫娘助手" className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
+                </Field>
+                <Field id="agent-avatarUrl" label={t('chatManage.agentAvatarUrl')}>
+                  <input id="agent-avatarUrl" value={agentDraft.avatarUrl} onChange={(event) => setAgentDraft((previous) => ({ ...previous, avatarUrl: event.target.value }))} placeholder="https://..." className="w-full rounded-xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-2.5 outline-none" />
+                </Field>
+                <Field id="agent-description" label={t('chatManage.agentDescription')} className="lg:col-span-2">
+                  <textarea id="agent-description" value={agentDraft.description} onChange={(event) => setAgentDraft((previous) => ({ ...previous, description: event.target.value }))} rows={3} placeholder="简短的描述文本" className="w-full rounded-2xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-3 outline-none" />
+                </Field>
+                <Field id="agent-systemPrompt" label={t('chatManage.agentSystemPrompt')} className="lg:col-span-2">
+                  <textarea id="agent-systemPrompt" value={agentDraft.systemPrompt} onChange={(event) => setAgentDraft((previous) => ({ ...previous, systemPrompt: event.target.value }))} rows={6} placeholder="系统级 prompt，可写工具定义" className="w-full rounded-2xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-3 outline-none" />
+                </Field>
+                <Field id="agent-personaDefinition" label={t('chatManage.agentPersonaDefinition')} className="lg:col-span-2">
+                  <textarea id="agent-personaDefinition" value={agentDraft.personaDefinition} onChange={(event) => setAgentDraft((previous) => ({ ...previous, personaDefinition: event.target.value }))} rows={14} placeholder="详细的人格描述和行为规则" className="w-full rounded-2xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-3 py-3 outline-none" />
+                </Field>
                 <label className="flex items-center gap-3 rounded-xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-3 py-2.5 text-sm text-[color:var(--text-secondary)] lg:col-span-2">
                   <input type="checkbox" checked={agentDraft.free} onChange={(event) => setAgentDraft((previous) => ({ ...previous, free: event.target.checked }))} />
                   免费智能体
@@ -498,9 +537,9 @@ export default function ChatManagePage() {
               </div>
 
               <div className="mt-5 flex flex-wrap gap-3">
-                <button type="button" disabled={saving} onClick={handleSaveAgent} className="rounded-xl border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-4 py-2.5 text-sm text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-40">保存智能体</button>
+                <button type="button" disabled={saving} onClick={handleSaveAgent} className="rounded-xl border border-[color:var(--accent-border)] bg-[var(--accent-soft)] px-4 py-2.5 text-sm text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-40">{t('chatManage.saveAgent')}</button>
                 {selectedAgentId && (
-                  <button type="button" disabled={saving} onClick={handleDeleteAgent} className="rounded-xl border border-[color:var(--danger-border)] bg-[var(--danger-soft)] px-4 py-2.5 text-sm text-[color:var(--danger-text)] transition hover:opacity-85 disabled:opacity-40">删除智能体</button>
+                  <button type="button" disabled={saving} onClick={handleDeleteAgent} className="rounded-xl border border-[color:var(--danger-border)] bg-[var(--danger-soft)] px-4 py-2.5 text-sm text-[color:var(--danger-text)] transition hover:opacity-85 disabled:opacity-40">{t('chatManage.deleteAgent')}</button>
                 )}
               </div>
             </section>

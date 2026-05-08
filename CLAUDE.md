@@ -38,6 +38,33 @@ Check `/health` for liveness. No test suite exists.
 - **Hooks**: `usePageSeo` (meta tags, JSON-LD), `useTransientScrollbar`.
 - **Styling**: Tailwind CSS + `index.css` with `.md-content` styles for code blocks, links, tables, images, etc. Dark gradient theme (`#050816`). Fonts: Space Grotesk, Noto Sans SC, IBM Plex Mono.
 - **Utils**: `markdown.js` — `processMarkdown()` escapes single `~` to prevent unwanted GFM strikethrough.
+- **Internationalization**: See the dedicated section below (`frontend/src/contexts/AppShellContext.jsx`).
+
+### Internationalization
+
+- Overview: i18n is implemented centrally in `frontend/src/contexts/AppShellContext.jsx` via the `AppShellProvider`. The provider exposes `t(key, params)` for translations, `locale`/`setLocale`, `localeOptions`, and helpers `formatDate`, `formatNumber`, `formatRelativeTime`.
+
+- Where translations live: the file contains a `DICTIONARIES` object keyed by locale codes (`zh-CN`, `zh-TW`, `en-US`). Messages use nested keys (e.g. `blog.pageTitle`, `home.heroSubtitle`).
+
+- Using translations in code:
+	- Import the hook: `import { useAppShell } from '../contexts/AppShellContext';`
+	- Example: `const { t, formatNumber } = useAppShell();` then `t('blog.readCount', { count: formatNumber(123) })`.
+	- Interpolation tokens use `{name}` placeholders in strings and are substituted by passing a params object to `t()`.
+
+- Adding or changing messages:
+	- Add or update keys in each locale inside `DICTIONARIES`.
+	- For new locales, add an entry to `LOCALE_OPTIONS` and provide `DICTIONARIES['<code>']` with the same structure.
+
+- Persistence & behavior:
+	- Selected locale is persisted in `localStorage` key `app_locale` and `AppShellProvider` updates `document.documentElement.lang`.
+	- Missing keys fall back to the default locale (`zh-CN`) then to the key string itself.
+
+- Formatting helpers: `formatDate` and `formatNumber` use the `Intl` APIs with the active locale to produce locale-aware output.
+
+- Best practices:
+	- Avoid hardcoded strings in components; use `t()` to keep UI translatable.
+	- Keep key names stable; update all locales when adding keys.
+	- Consider extracting `DICTIONARIES` into separate `frontend/src/i18n/*.js` files if the translation corpus grows, and import them into the context for maintainability.
 
 ### Auth & Permissions
 
