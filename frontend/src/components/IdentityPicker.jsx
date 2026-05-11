@@ -18,9 +18,6 @@ export default function IdentityPicker({ identities, chats, onSelectIdentity, on
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[color:var(--accent-solid)]">{t('chat.identityLab')}</p>
             <h2 className="mt-2 text-2xl font-semibold text-[color:var(--text-primary)] sm:text-3xl">{t('chat.chooseAgentStart')}</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:var(--text-muted)] sm:text-base">
-              {t('chat.identityLabDesc')}
-            </p>
           </div>
           <button
             type="button"
