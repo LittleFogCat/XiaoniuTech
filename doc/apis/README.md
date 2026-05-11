@@ -1,22 +1,23 @@
-# API 文档
+# 接口文档索引
 
-**认证：** 
-见 [认证模块接口](auth.md)
+除 [seo.md](seo.md) 中的公开页面与爬虫接口外，其余后端 JSON 接口默认都挂载在 `/api` 前缀下。
 
-**博客：** 
-见 [博客模块接口](blog.md)
+接口文档统一格式见 [接口文档格式.md](接口文档格式.md)。
 
-**聊天：** 
-见 [聊天模块接口](chat.md)
+## 文档列表
 
-**权限：** 
-见 [权限模块接口](permission.md)
+- [auth.md](auth.md)：注册、登录、当前用户资料。
+- [users.md](users.md)：按昵称获取用户公开资料。
+- [blog.md](blog.md)：博客文章、评论、导入与管理接口。
+- [chat.md](chat.md)：聊天流式接口、聊天记录、模型与智能体管理接口。
+- [permission.md](permission.md)：当前权限、用户组、黑名单接口。
+- [statistics.md](statistics.md)：访问统计上报、概览与导出接口。
+- [file.md](file.md)：图片上传与文件访问接口。
+- [seo.md](seo.md)：`robots.txt`、`sitemap.xml` 和博客文章 SEO 页面接口。
+- [system.md](system.md)：健康检查接口。
 
-**统计：** 
-见 [统计模块接口](statistics.md)
+## 通用说明
 
-**文件：** 
-见 [文件模块接口](file.md)
-
-**用户：**
-见 [用户模块接口](user.md)
+- 需要登录的接口使用 `Authorization: Bearer <token>` 头传递令牌。
+- 失败响应通常为 `{"error":"错误信息"}`。
+- 除特殊说明外，请求体和响应体均为 `application/json`。
