@@ -246,7 +246,7 @@ router.get('/chat/agents', async (req, res) => {
 
 router.post('/chat', async (req, res) => {
   try {
-    const { model, messages, max_tokens, temperature, top_p, chatTarget } = req.body;
+    const { model, messages, max_tokens, temperature, top_p, chatTarget, thinking } = req.body || {};
 
     if (!model) {
       return res.status(400).json({ error: 'model is required' });
@@ -256,11 +256,11 @@ router.post('/chat', async (req, res) => {
       return res.status(400).json({ error: 'messages is required and must be non-empty array' });
     }
 
-  const access = await resolveChatAccess(req);
-  const modelConfig = await findChatModelById(model);
-  assertModelAccess(modelConfig, access);
+    const access = await resolveChatAccess(req);
+    const modelConfig = await findChatModelById(model);
+    assertModelAccess(modelConfig, access);
     const resolvedChatTarget = await resolveChatTarget(chatTarget);
-  assertAgentAccess(resolvedChatTarget, access);
+    assertAgentAccess(resolvedChatTarget, access);
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -271,14 +271,25 @@ router.post('/chat', async (req, res) => {
       max_tokens: max_tokens || modelConfig?.maxTokens || 4096,
       temperature: temperature ?? 0.7,
       top_p: top_p ?? 1.0,
+      thinking,
       stream: true,
     };
 
-    let fullContent = '';
     const completionMessages = buildCompletionMessages(messages, resolvedChatTarget);
     for await (const chunk of streamCompletions(model, completionMessages, options)) {
-      fullContent += chunk;
-      res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+      const frame = {};
+
+      if (chunk.reasoningContent) {
+        frame.reasoning_content = chunk.reasoningContent;
+      }
+
+      if (chunk.content) {
+        frame.content = chunk.content;
+      }
+
+      if (Object.keys(frame).length > 0) {
+        res.write(`data: ${JSON.stringify(frame)}\n\n`);
+      }
     }
 
     res.write('data: [DONE]\n\n');

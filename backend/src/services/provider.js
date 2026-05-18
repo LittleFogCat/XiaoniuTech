@@ -35,11 +35,19 @@ function buildPayload(modelConfig, messages, options = {}) {
     payload.top_p = 1.0;
   }
 
+  if (options.thinking !== undefined) {
+    payload.thinking = options.thinking;
+  }
+
   if (options.stream !== false) {
     payload.stream = true;
   }
 
   return payload;
+}
+
+function readTextSegment(value) {
+  return typeof value === 'string' ? value : '';
 }
 
 function buildHeaders(provider, providerConfig) {
@@ -79,6 +87,7 @@ function logProviderExchange(stage, payload) {
 function parseChunk(chunk) {
   const lines = chunk.split('\n');
   let content = '';
+  let reasoningContent = '';
 
   for (const line of lines) {
     const trimmed = line.trim();
@@ -88,25 +97,26 @@ function parseChunk(chunk) {
 
     const data = trimmed.slice(5).trim();
     if (data === '[DONE]') {
-      return { done: true, content: '' };
+      return { done: true, content: '', reasoningContent: '' };
     }
 
     try {
       const obj = JSON.parse(data);
       const choice = obj.choices?.[0];
 
-      if (choice?.delta?.content) {
-        content += choice.delta.content;
-      } else if (choice?.message?.content) {
-        content += choice.message.content;
-      } else if (choice?.text) {
-        content += choice.text;
-      }
+      content += readTextSegment(choice?.delta?.content)
+        || readTextSegment(choice?.message?.content)
+        || readTextSegment(choice?.text)
+        || readTextSegment(obj.content);
+
+      reasoningContent += readTextSegment(choice?.delta?.reasoning_content)
+        || readTextSegment(choice?.message?.reasoning_content)
+        || readTextSegment(obj.reasoning_content);
     } catch (e) {
     }
   }
 
-  return { done: false, content };
+  return { done: false, content, reasoningContent };
 }
 
 export async function* streamCompletions(modelId, messages, options = {}) {
@@ -125,6 +135,7 @@ export async function* streamCompletions(modelId, messages, options = {}) {
   let response = null;
   let errorResponseBody = '';
   let finalResponseContent = '';
+  let finalResponseReasoningContent = '';
 
   if (shouldLog) {
     logProviderExchange('request', {
@@ -164,9 +175,10 @@ export async function* streamCompletions(modelId, messages, options = {}) {
         if (done) {
           if (buffer) {
             const parsed = parseChunk(buffer);
-            if (parsed.content) {
+            if (parsed.content || parsed.reasoningContent) {
               finalResponseContent += parsed.content;
-              yield parsed.content;
+              finalResponseReasoningContent += parsed.reasoningContent;
+              yield parsed;
             }
           }
           break;
@@ -183,9 +195,10 @@ export async function* streamCompletions(modelId, messages, options = {}) {
           if (parsed.done) {
             return;
           }
-          if (parsed.content) {
+          if (parsed.content || parsed.reasoningContent) {
             finalResponseContent += parsed.content;
-            yield parsed.content;
+            finalResponseReasoningContent += parsed.reasoningContent;
+            yield parsed;
           }
         }
       }
@@ -207,7 +220,10 @@ export async function* streamCompletions(modelId, messages, options = {}) {
               statusText: response.statusText,
               headers: toLoggableHeaders(response.headers),
               ...(response.ok
-                ? (finalResponseContent ? { finalContent: finalResponseContent } : {})
+                ? {
+                    ...(finalResponseContent ? { finalContent: finalResponseContent } : {}),
+                    ...(finalResponseReasoningContent ? { finalReasoningContent: finalResponseReasoningContent } : {}),
+                  }
                 : (errorResponseBody ? { errorBody: errorResponseBody } : {})),
             }
           : null,
@@ -219,7 +235,7 @@ export async function* streamCompletions(modelId, messages, options = {}) {
 export async function completions(modelId, messages, options = {}) {
   let fullContent = '';
   for await (const chunk of streamCompletions(modelId, messages, options)) {
-    fullContent += chunk;
+    fullContent += chunk.content || '';
   }
   return fullContent;
 }

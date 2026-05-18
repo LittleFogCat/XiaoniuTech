@@ -1,18 +1,37 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { processMarkdown } from '../utils/markdown';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import IdentityAvatar from './IdentityAvatar';
 import { useAppShell } from '../contexts/AppShellContext';
 
-export default function ChatMessage({ role, content, onRegenerate, isThinking = false, assistantName, assistantAvatarUrl = '' }) {
+function formatReasoningDurationSeconds(durationMs) {
+  if (!Number.isFinite(durationMs) || durationMs < 0) {
+    return 1;
+  }
+
+  return Math.max(1, Math.ceil(durationMs / 1000));
+}
+
+export default function ChatMessage({ role, content, reasoningContent = '', reasoningDurationMs, onRegenerate, isThinking = false, assistantName, assistantAvatarUrl = '' }) {
   const { t } = useAppShell();
   const isUser = role === 'user';
   const [copied, setCopied] = useState(false);
+  const [showReasoning, setShowReasoning] = useState(false);
   const resolvedAssistantName = assistantName || t('common.assistantName');
+  const hasReasoning = Boolean(reasoningContent);
+  const answerContent = content || (!hasReasoning ? reasoningContent : '');
+  const copyContent = content || reasoningContent;
+  const reasoningDurationSeconds = formatReasoningDurationSeconds(reasoningDurationMs);
+
+  useEffect(() => {
+    if (!isThinking && hasReasoning) {
+      setShowReasoning(false);
+    }
+  }, [isThinking, hasReasoning, reasoningContent]);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(content);
+    await navigator.clipboard.writeText(copyContent);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -47,19 +66,62 @@ export default function ChatMessage({ role, content, onRegenerate, isThinking = 
                   </span>
                 ) : null}
               </div>
+              {!isThinking && hasReasoning ? (
+                <div className="mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowReasoning((previous) => !previous)}
+                    aria-expanded={showReasoning}
+                    title={showReasoning ? t('chat.hideReasoning') : t('chat.showReasoning')}
+                    className="inline-flex items-center gap-2 rounded-full px-0 py-0.5 text-xs font-medium text-[color:var(--text-muted)] transition hover:text-[color:var(--text-primary)]"
+                  >
+                    <span>{t('chat.reasoningSummary', { seconds: reasoningDurationSeconds })}</span>
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 14 14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      className={`transition-transform duration-200 ${showReasoning ? 'rotate-180' : ''}`}
+                    >
+                      <path d="M3 5l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  {showReasoning ? (
+                    <div className="mt-3 rounded-2xl border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] px-4 py-3 text-[color:var(--text-secondary)]">
+                      <div className="prose prose-invert max-w-none select-text touch-auto text-[14px] leading-relaxed text-[color:var(--text-secondary)] [-webkit-touch-callout:default] [-webkit-user-select:text] sm:text-[15px] sm:leading-loose">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {processMarkdown(reasoningContent)}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="text-[color:var(--text-primary)]">
                 {isThinking ? (
-                  <div className="flex h-7 items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-slate-200/75 animate-pulse" />
-                    <span className="h-2 w-2 rounded-full bg-slate-300/60 animate-pulse [animation-delay:150ms]" />
-                    <span className="h-2 w-2 rounded-full bg-slate-400/60 animate-pulse [animation-delay:300ms]" />
-                  </div>
+                  reasoningContent ? (
+                    <div className="prose prose-invert max-w-none select-text touch-auto text-[14px] leading-relaxed text-[color:var(--text-secondary)] [-webkit-touch-callout:default] [-webkit-user-select:text] sm:text-[15px] sm:leading-loose">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {processMarkdown(reasoningContent)}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <div className="flex h-7 items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-slate-200/75 animate-pulse" />
+                      <span className="h-2 w-2 rounded-full bg-slate-300/60 animate-pulse [animation-delay:150ms]" />
+                      <span className="h-2 w-2 rounded-full bg-slate-400/60 animate-pulse [animation-delay:300ms]" />
+                    </div>
+                  )
                 ) : (
-                  <div className="prose prose-invert max-w-none select-text touch-auto text-[15px] leading-relaxed [-webkit-touch-callout:default] [-webkit-user-select:text] sm:text-base sm:leading-loose sm:tracking-wide">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {content}
-                    </ReactMarkdown>
-                  </div>
+                  answerContent ? (
+                    <div className="prose prose-invert max-w-none select-text touch-auto text-[15px] leading-relaxed [-webkit-touch-callout:default] [-webkit-user-select:text] sm:text-base sm:leading-loose sm:tracking-wide">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {answerContent}
+                      </ReactMarkdown>
+                    </div>
+                  ) : null
                 )}
               </div>
               {!isThinking && <div className="mt-4 flex flex-wrap gap-2">

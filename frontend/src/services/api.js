@@ -208,12 +208,22 @@ export async function* streamChat(model, messages, options = {}) {
         return;
       }
 
+      let obj;
       try {
-        const obj = JSON.parse(data);
-        if (obj.content) {
-          yield obj.content;
-        }
+        obj = JSON.parse(data);
       } catch (e) {
+        continue;
+      }
+
+      if (obj.error) {
+        throw new Error(obj.error);
+      }
+
+      const content = typeof obj.content === 'string' ? obj.content : '';
+      const reasoningContent = typeof obj.reasoning_content === 'string' ? obj.reasoning_content : '';
+
+      if (content || reasoningContent) {
+        yield { content, reasoningContent };
       }
     }
   }

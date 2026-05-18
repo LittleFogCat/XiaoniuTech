@@ -67,6 +67,7 @@
 | messages[].role | string | 是 | 消息角色，可选值：`user`、`assistant`、`system`。 |
 | messages[].content | string | 是 | 消息内容。 |
 | chatTarget | object\|null | 否 | 聊天目标。仅支持 `{ "type": "identity", "id": "xiaonaimo" }`。 |
+| thinking | object | 否 | 原样透传给上游模型的思考参数，例如 `{ "type": "enabled" }`。具体支持与字段格式取决于所选模型提供商。 |
 | max_tokens | number | 否 | 最大输出 token 数。默认取模型配置中的 `maxTokens`，再兜底为 `4096`。 |
 | temperature | number | 否 | 温度参数，默认 `0.7`。 |
 | top_p | number | 否 | `top_p` 参数，默认 `1.0`。 |
@@ -86,6 +87,9 @@
     "type": "identity",
     "id": "xiaonaimo"
   },
+  "thinking": {
+    "type": "enabled"
+  },
   "max_tokens": 4096,
   "temperature": 0.7,
   "top_p": 1.0
@@ -95,6 +99,15 @@
 **返回示例**
 
 ```text
+
+data: {"reasoning_content": "用户说\"你好\"，"}
+
+data: {"reasoning_content": "我"}
+
+data: {"reasoning_content": "只需要"}
+
+data: {"reasoning_content": "简单地回复即可"}
+
 data: {"content":"你"}
 
 data: {"content":"好"}
@@ -106,7 +119,7 @@ data: [DONE]
 
 | 参数名 | 参数类型 | 是否必需 | 参数说明及示例值 |
 | --- | --- | --- | --- |
-| SSE data | string | 是 | 以 `data: <json>` 形式持续返回。JSON 正常帧格式为 `{ "content": "文本片段" }`。 |
+| SSE data | string | 是 | 以 `data: <json>` 形式持续返回。JSON 正常帧会返回 `{ "content": "文本片段" }`、`{ "reasoning_content": "思考片段" }`，也可能在同一帧中同时包含两者。 |
 | SSE 结束标记 | string | 是 | 完成时固定返回 `data: [DONE]`。 |
 
 **所需权限**
@@ -118,6 +131,7 @@ data: [DONE]
 - 免费模型要求匿名用户或拥有 `chat:chat_free` / `chat:chat_paid` 权限。
 - 付费模型要求登录且拥有 `chat:chat_paid` 权限。
 - 免费智能体要求匿名用户或拥有 `chat:agent_free` / `chat:agent_paid` 权限；付费智能体要求 `chat:agent_paid` 权限。
+- `thinking` 参数不会在服务端做额外解释或转换，而是原样透传给上游模型接口。
 - 请求前校验失败时返回 JSON 错误，常见状态码为 `400`、`403`；若流已经开始，后续错误会以 `data: {"error":"..."}` 的 SSE 帧返回。
 
 ### 获取聊天记录列表

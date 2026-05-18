@@ -187,7 +187,24 @@ function isPersistedChat(chat) {
   return chat.messages.length > 0;
 }
 
-function upsertAssistantMessage(messages, content, thinking = false) {
+function buildAssistantMessage(content, options = {}) {
+  const {
+    thinking = false,
+    reasoningContent = '',
+    reasoningDurationMs,
+  } = options;
+
+  return {
+    role: 'assistant',
+    content,
+    thinking,
+    reasoningContent,
+    ...(reasoningDurationMs !== undefined ? { reasoningDurationMs } : {}),
+  };
+}
+
+function upsertAssistantMessage(messages, content, options = {}) {
+  const { thinking = false, reasoningContent = '', reasoningDurationMs } = options;
   const nextMessages = Array.isArray(messages) ? [...messages] : [];
   const lastMessage = nextMessages[nextMessages.length - 1];
 
@@ -196,12 +213,52 @@ function upsertAssistantMessage(messages, content, thinking = false) {
       ...lastMessage,
       content,
       thinking,
+      reasoningContent,
+      ...(reasoningDurationMs !== undefined ? { reasoningDurationMs } : {}),
     };
     return nextMessages;
   }
 
-  nextMessages.push({ role: 'assistant', content, thinking });
+  nextMessages.push(buildAssistantMessage(content, options));
   return nextMessages;
+}
+
+function normalizeStreamChunk(chunk) {
+  if (typeof chunk === 'string') {
+    return {
+      content: chunk,
+      reasoningContent: '',
+    };
+  }
+
+  return {
+    content: typeof chunk?.content === 'string' ? chunk.content : '',
+    reasoningContent: typeof chunk?.reasoningContent === 'string' ? chunk.reasoningContent : '',
+  };
+}
+
+function buildThinkingOption(modelId, models) {
+  const modelMeta = Array.isArray(models)
+    ? models.find((model) => model.id === modelId)
+    : null;
+
+  if (!modelMeta?.reasoning) {
+    return undefined;
+  }
+
+  return { type: 'enabled' };
+}
+
+function resolveReasoningDurationMs(startedAt, reasoningContent, currentDurationMs) {
+  if (!reasoningContent) {
+    return undefined;
+  }
+
+  if (Number.isFinite(currentDurationMs) && currentDurationMs >= 0) {
+    return currentDurationMs;
+  }
+
+  return Math.max(0, Date.now() - startedAt);
 }
 
 export default function ChatPage() {
@@ -393,7 +450,7 @@ export default function ChatPage() {
     markChatScrollbarVisible();
   };
 
-  const commitAssistantPreview = (content, thinking = false) => {
+  const commitAssistantPreview = (content, options = {}) => {
     setCurrentChat((prev) => {
       if (!prev) {
         return prev;
@@ -401,7 +458,7 @@ export default function ChatPage() {
 
       return {
         ...prev,
-        messages: upsertAssistantMessage(prev.messages, content, thinking),
+        messages: upsertAssistantMessage(prev.messages, content, options),
       };
     });
   };
@@ -670,6 +727,7 @@ export default function ChatPage() {
 
   const handleSend = async (content) => {
     const effectiveModel = normalizeModelId(selectedModel, models, selectedModel);
+    const thinking = buildThinkingOption(effectiveModel, models);
     const activeChatTarget = currentChat?.chatTarget || null;
     const activeChatIdentity = identities.find((identity) => identity.id === activeChatTarget?.id) || null;
     const title = buildChatTitle(content, currentChat, activeIdentity, t);
@@ -695,7 +753,10 @@ export default function ChatPage() {
 
     const userMessage = { role: 'user', content };
     const newMessages = [...safeMessages, userMessage];
-    const waitingAssistant = { role: 'assistant', content: '', thinking: true };
+    const waitingAssistant = buildAssistantMessage('', {
+      thinking: true,
+      reasoningContent: '',
+    });
     setGuestLimitNotice('');
     setIsLoading(true);
 
@@ -758,31 +819,68 @@ export default function ChatPage() {
       }
 
       let fullContent = '';
+      let fullReasoningContent = '';
+      const thinkingStartedAt = Date.now();
+      let reasoningDurationMs;
       let lastUiUpdateAt = 0;
       const streamFn = USE_MOCK
         ? () => mock.streamChatMock(effectiveModel, newMessages)
-        : () => streamChat(effectiveModel, newMessages, { chatTarget: activeChatTarget });
+        : () => streamChat(effectiveModel, newMessages, {
+          chatTarget: activeChatTarget,
+          ...(thinking ? { thinking } : {}),
+        });
 
       for await (const chunk of streamFn()) {
-        fullContent += chunk;
+        const normalizedChunk = normalizeStreamChunk(chunk);
+        if (!normalizedChunk.content && !normalizedChunk.reasoningContent) {
+          continue;
+        }
+
+        fullContent += normalizedChunk.content;
+        fullReasoningContent += normalizedChunk.reasoningContent;
         const now = Date.now();
+
+        if (!Number.isFinite(reasoningDurationMs) && fullContent && fullReasoningContent) {
+          reasoningDurationMs = Math.max(0, now - thinkingStartedAt);
+        }
+
         if (now - lastUiUpdateAt < STREAM_UI_UPDATE_INTERVAL_MS) {
           continue;
         }
 
         lastUiUpdateAt = now;
-        commitAssistantPreview(fullContent, false);
+        commitAssistantPreview(fullContent, {
+          thinking: fullContent.length === 0,
+          reasoningContent: fullReasoningContent,
+          reasoningDurationMs,
+        });
       }
 
-      commitAssistantPreview(fullContent, false);
+      reasoningDurationMs = resolveReasoningDurationMs(
+        thinkingStartedAt,
+        fullReasoningContent,
+        reasoningDurationMs,
+      );
 
-      const finalMessages = [...newMessages, { role: 'assistant', content: fullContent }];
+      commitAssistantPreview(fullContent, {
+        thinking: false,
+        reasoningContent: fullReasoningContent,
+        reasoningDurationMs,
+      });
+
+      const finalAssistantMessage = buildAssistantMessage(fullContent, {
+        thinking: false,
+        reasoningContent: fullReasoningContent,
+        reasoningDurationMs,
+      });
+      const finalDisplayMessages = [...newMessages, finalAssistantMessage];
+      const persistedMessages = [...newMessages, { role: 'assistant', content: fullContent }];
 
       if (USE_MOCK) {
         const updatedChat = chatId
           ? mock.updateChat(chatId, {
             title: persistedTitle,
-            messages: finalMessages,
+            messages: finalDisplayMessages,
             model: effectiveModel,
             chatTarget: activeChatTarget,
           })
@@ -793,26 +891,25 @@ export default function ChatPage() {
         if (chatId) {
           const updated = upsertGuestChat(chatId, {
             title: persistedTitle,
-          model: effectiveModel,
+            model: effectiveModel,
             chatTarget: activeChatTarget,
-            messages: finalMessages,
+            messages: finalDisplayMessages,
           });
           if (updated) setCurrentChat(updated);
         }
       } else {
         if (chatId) {
-          const updatedMessages = [...newMessages, { role: 'assistant', content: fullContent }];
           try {
             const updatedResponse = await updateChat(chatId, {
               title: persistedTitle,
-              messages: updatedMessages,
+              messages: persistedMessages,
               model: effectiveModel,
             });
             const updatedChat = {
               ...(draftChat || currentChat || {}),
               ...(updatedResponse || {}),
               title: updatedResponse?.title || persistedTitle,
-              messages: Array.isArray(updatedResponse?.messages) ? updatedResponse.messages : updatedMessages,
+              messages: finalDisplayMessages,
               model: normalizeModelId(updatedResponse?.model || effectiveModel, models, effectiveModel),
               chatTarget: updatedResponse?.chatTarget || activeChatTarget,
             };
@@ -826,10 +923,16 @@ export default function ChatPage() {
               title: persistedTitle,
               model: effectiveModel,
               chatTarget: activeChatTarget,
-              messages: updatedMessages,
+              messages: persistedMessages,
             });
-            setChats(prev => sortChatsByUpdatedAt([recreatedChat, ...prev.filter(chat => chat.id !== chatId)]));
-            setCurrentChat(recreatedChat);
+            const recreatedDisplayChat = {
+              ...recreatedChat,
+              model: normalizeModelId(recreatedChat.model || effectiveModel, models, effectiveModel),
+              chatTarget: recreatedChat.chatTarget || activeChatTarget,
+              messages: finalDisplayMessages,
+            };
+            setChats(prev => sortChatsByUpdatedAt([recreatedDisplayChat, ...prev.filter(chat => chat.id !== chatId)]));
+            setCurrentChat(recreatedDisplayChat);
           }
         }
       }
@@ -844,6 +947,7 @@ export default function ChatPage() {
         if (lastMessage && lastMessage.role === 'assistant') {
           lastMessage.content = errorText;
           lastMessage.thinking = false;
+          lastMessage.reasoningContent = '';
         } else {
           nextMessages.push({ role: 'assistant', content: errorText });
         }
@@ -957,54 +1061,95 @@ export default function ChatPage() {
     if (!currentChat || isLoading) return;
 
     const effectiveModel = normalizeModelId(selectedModel, models, selectedModel);
+    const thinking = buildThinkingOption(effectiveModel, models);
     const userMessageIndex = assistantIndex - 1;
     if (userMessageIndex < 0 || currentChat.messages[userMessageIndex].role !== 'user') return;
 
     const nextMessages = currentChat.messages.slice(0, assistantIndex);
-    const waitingAssistant = { role: 'assistant', content: '', thinking: true };
+    const waitingAssistant = buildAssistantMessage('', {
+      thinking: true,
+      reasoningContent: '',
+    });
     setCurrentChat({ ...currentChat, messages: [...nextMessages, waitingAssistant] });
     setIsLoading(true);
 
     try {
       let fullContent = '';
+      let fullReasoningContent = '';
+      const thinkingStartedAt = Date.now();
+      let reasoningDurationMs;
       let lastUiUpdateAt = 0;
       const streamFn = USE_MOCK
         ? () => mock.streamChatMock(effectiveModel, nextMessages)
-        : () => streamChat(effectiveModel, nextMessages, { chatTarget: currentChat.chatTarget || null });
+        : () => streamChat(effectiveModel, nextMessages, {
+          chatTarget: currentChat.chatTarget || null,
+          ...(thinking ? { thinking } : {}),
+        });
 
       for await (const chunk of streamFn()) {
-        fullContent += chunk;
+        const normalizedChunk = normalizeStreamChunk(chunk);
+        if (!normalizedChunk.content && !normalizedChunk.reasoningContent) {
+          continue;
+        }
+
+        fullContent += normalizedChunk.content;
+        fullReasoningContent += normalizedChunk.reasoningContent;
         const now = Date.now();
+
+        if (!Number.isFinite(reasoningDurationMs) && fullContent && fullReasoningContent) {
+          reasoningDurationMs = Math.max(0, now - thinkingStartedAt);
+        }
+
         if (now - lastUiUpdateAt < STREAM_UI_UPDATE_INTERVAL_MS) {
           continue;
         }
 
         lastUiUpdateAt = now;
-        commitAssistantPreview(fullContent, false);
+        commitAssistantPreview(fullContent, {
+          thinking: fullContent.length === 0,
+          reasoningContent: fullReasoningContent,
+          reasoningDurationMs,
+        });
       }
 
-      commitAssistantPreview(fullContent, false);
+      reasoningDurationMs = resolveReasoningDurationMs(
+        thinkingStartedAt,
+        fullReasoningContent,
+        reasoningDurationMs,
+      );
+
+      commitAssistantPreview(fullContent, {
+        thinking: false,
+        reasoningContent: fullReasoningContent,
+        reasoningDurationMs,
+      });
+
+      const finalAssistantMessage = buildAssistantMessage(fullContent, {
+        thinking: false,
+        reasoningContent: fullReasoningContent,
+        reasoningDurationMs,
+      });
+      const finalDisplayMessages = [...nextMessages, finalAssistantMessage];
+      const persistedMessages = [...nextMessages, { role: 'assistant', content: fullContent }];
 
       if (USE_MOCK) {
         mock.updateChat(currentChat.id, {
-          messages: [...nextMessages, { role: 'assistant', content: fullContent }],
+          messages: finalDisplayMessages,
         });
       } else if (isGuest) {
-        const updatedMessages = [...nextMessages, { role: 'assistant', content: fullContent }];
         const updated = upsertGuestChat(currentChat.id, {
           title: currentChat.title || t('common.untitledChat'),
           model: effectiveModel,
           chatTarget: currentChat.chatTarget || null,
-          messages: updatedMessages,
+          messages: finalDisplayMessages,
         });
         if (updated) setCurrentChat(updated);
       } else {
-        const updatedMessages = [...nextMessages, { role: 'assistant', content: fullContent }];
         try {
           await updateChat(currentChat.id, {
-            messages: updatedMessages,
+            messages: persistedMessages,
           });
-          setCurrentChat(prev => (prev ? { ...prev, messages: updatedMessages } : prev));
+          setCurrentChat(prev => (prev ? { ...prev, messages: finalDisplayMessages } : prev));
         } catch (error) {
           if (!is404Error(error)) {
             throw error;
@@ -1013,10 +1158,16 @@ export default function ChatPage() {
             title: currentChat.title || t('common.untitledChat'),
             model: effectiveModel,
             chatTarget: currentChat.chatTarget || null,
-            messages: updatedMessages,
+            messages: persistedMessages,
           });
-          setChats(prev => sortChatsByUpdatedAt([recreatedChat, ...prev.filter(chat => chat.id !== currentChat.id)]));
-          setCurrentChat(recreatedChat);
+          const recreatedDisplayChat = {
+            ...recreatedChat,
+            model: normalizeModelId(recreatedChat.model || effectiveModel, models, effectiveModel),
+            chatTarget: recreatedChat.chatTarget || currentChat.chatTarget || null,
+            messages: finalDisplayMessages,
+          };
+          setChats(prev => sortChatsByUpdatedAt([recreatedDisplayChat, ...prev.filter(chat => chat.id !== currentChat.id)]));
+          setCurrentChat(recreatedDisplayChat);
         }
       }
     } catch (error) {
@@ -1309,6 +1460,8 @@ export default function ChatPage() {
                         key={index}
                         role={msg.role}
                         content={msg.content}
+                        reasoningContent={msg.reasoningContent || ''}
+                        reasoningDurationMs={msg.reasoningDurationMs}
                         isThinking={msg.role === 'assistant' && msg.thinking}
                         onRegenerate={msg.role === 'assistant' && !msg.thinking ? () => handleRegenerate(index) : null}
                         assistantName={assistantName}
