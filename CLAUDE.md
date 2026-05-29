@@ -113,3 +113,5 @@ Check `/health` for liveness. No test suite exists.
 - Email sent in background (fire-and-forget); registration response returns before SMTP completes.
 - Nickname: alphanumeric + Chinese only, 1-32 chars, unique. Reserved: `post`, `new`, `edit`, `manage`.
 - `backdrop-blur-lg` on header creates containing block — `position: fixed` dialogs must be rendered outside the header element.
+- API documentation is available at `/api/docs`. See `/api/docs/README.md` for details including API docs and API deployment instructions.
+- Frontend UI design documentation is available at `/doc/ui/README.md`.

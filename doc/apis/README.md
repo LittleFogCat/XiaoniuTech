@@ -1,8 +1,8 @@
 # 接口文档索引
 
-除 [seo.md](seo.md) 中的公开页面与爬虫接口外，其余后端 JSON 接口默认都挂载在 `/api` 前缀下。
+除 [seo.md](seo.md) 中的公开页面与爬虫接口，以及 [system.md](system.md) 中的健康检查接口外，其余后端 JSON 接口默认都挂载在 `/api` 前缀下。
 
-接口文档统一格式见 [接口文档格式.md](接口文档格式.md)。
+接口文档统一格式见 [API文档格式.md](API文档格式.md)。
 
 ## 文档列表
 
@@ -16,8 +16,6 @@
 - [seo.md](seo.md)：`robots.txt`、`sitemap.xml` 和博客文章 SEO 页面接口。
 - [system.md](system.md)：健康检查接口。
 
-## 通用说明
+## API 开发规范
 
-- 需要登录的接口使用 `Authorization: Bearer <token>` 头传递令牌。
-- 失败响应通常为 `{"error":"错误信息"}`。
-- 除特殊说明外，请求体和响应体均为 `application/json`。
+API 开发规范见 [API 开发规范.md](API开发规范.md)。
