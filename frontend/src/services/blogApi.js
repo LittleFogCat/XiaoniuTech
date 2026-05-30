@@ -1,4 +1,11 @@
 const API_BASE = '/api/blog';
+export const AUTH_CHANGE_EVENT = 'xn-auth-changed';
+
+function emitAuthChange() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
+  }
+}
 
 function getAuthToken() {
   return localStorage.getItem('auth_token');
@@ -35,7 +42,10 @@ export function logout() {
   localStorage.removeItem('auth_token');
   localStorage.removeItem('isLoggedIn');
   localStorage.removeItem('auth_mode');
+  emitAuthChange();
 }
+
+export { emitAuthChange };
 
 export async function fetchUserProfile() {
   const res = await fetch('/api/user/profile', {

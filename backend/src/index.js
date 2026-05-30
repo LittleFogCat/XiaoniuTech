@@ -8,6 +8,7 @@ import chatRouter from './routes/chat.js';
 import chatManageRouter from './routes/chatManage.js';
 import permissionRouter from './routes/permission.js';
 import statisticsRouter from './routes/statistics.js';
+import stockRouter from './routes/stock.js';
 import uploadRouter from './routes/upload.js';
 import { connectMongoDB } from './db/mongoose.js';
 import { backfillFileMd5sInBackground } from './services/fileStore.js';
@@ -16,6 +17,7 @@ import { resolveUserFromRequest } from './middleware/auth.js';
 import { initializeIdentityCatalog } from './services/identityStore.js';
 import { initializeModelCatalog } from './services/modelStore.js';
 import { initializePermissionSystem } from './services/permissionStore.js';
+import { ensureStockReviewIndexes } from './services/stockStore.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -39,6 +41,7 @@ app.use('/api', authRouter);
 app.use('/api', chatRouter);
 app.use('/api', chatManageRouter);
 app.use('/api/blog', blogRouter);
+app.use('/api/stock', stockRouter);
 app.use('/api', permissionRouter);
 app.use('/api', statisticsRouter);
 app.use('/api', uploadRouter);
@@ -52,6 +55,8 @@ async function startServer() {
   try {
     const mongoUri = await connectMongoDB();
     console.log(`MongoDB connected: ${mongoUri}`);
+    await ensureStockReviewIndexes();
+    console.log('Stock review indexes ready');
     const permissionResult = await initializePermissionSystem();
     console.log(`Permission system ready: ${permissionResult.groupCount} groups, ${permissionResult.blacklistCount} blacklist entries`);
     const modelResult = await initializeModelCatalog();

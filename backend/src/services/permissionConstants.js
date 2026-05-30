@@ -1,5 +1,16 @@
 export const PERMISSION_GROUPS = [
   {
+    module: 'stock',
+    label: '股票模块',
+    permissions: [
+      'stock:review:view',
+      'stock:review:view_all',
+      'stock:review:create',
+      'stock:review:update',
+      'stock:review:delete',
+    ],
+  },
+  {
     module: 'blog',
     label: '博客模块',
     permissions: [

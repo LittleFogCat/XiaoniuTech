@@ -12,6 +12,8 @@ import ChatManagePage from './pages/ChatManagePage';
 import PermissionManagePage from './pages/PermissionManagePage';
 import StatisticsPage from './pages/StatisticsPage';
 import UserHomePage from './pages/UserHomePage';
+import StockReviewPage from './pages/StockReviewPage';
+import StockReviewDetailPage from './pages/StockReviewDetailPage';
 import { AppShellProvider } from './contexts/AppShellContext';
 import StatisticsTracker from './components/StatisticsTracker';
 
@@ -28,6 +30,9 @@ export default function App() {
           <Route path="/permission" element={<Navigate to="/permissions" replace />} />
           <Route path="/permissions" element={<PermissionManagePage />} />
           <Route path="/statistics" element={<StatisticsPage />} />
+          <Route path="/stock/review" element={<StockReviewPage />} />
+          <Route path="/stock/review/new" element={<StockReviewDetailPage />} />
+          <Route path="/stock/review/:reviewId" element={<StockReviewDetailPage />} />
           <Route
             path="/games"
             element={<PlaceholderPage titleKey="placeholder.gamesTitle" descriptionKey="placeholder.gamesDescription" />}

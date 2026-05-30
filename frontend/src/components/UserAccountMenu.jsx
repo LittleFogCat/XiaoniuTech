@@ -167,6 +167,23 @@ export default function UserAccountMenu({ onLogout }) {
                 访问统计
               </button>
             )}
+            {profile?.permissions?.includes('stock:review:view') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  navigate('/stock/review');
+                }}
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 3v18h18" />
+                  <path d="m7 14 3-3 3 2 4-5" />
+                  <path d="M17 8h3v3" />
+                </svg>
+                股市复盘
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {

@@ -12,6 +12,7 @@
 - [chat.md](chat.md)：聊天流式接口、聊天记录、模型与智能体管理接口。
 - [permission.md](permission.md)：当前权限、用户组、黑名单接口。
 - [statistics.md](statistics.md)：访问统计上报、概览与导出接口。
+- [stock.md](stock.md)：股票复盘接口。
 - [file.md](file.md)：图片上传与文件访问接口。
 - [seo.md](seo.md)：`robots.txt`、`sitemap.xml` 和博客文章 SEO 页面接口。
 - [system.md](system.md)：健康检查接口。

@@ -5,6 +5,7 @@ import {
   requestRegistration,
   verifyRegistration,
 } from '../services/api';
+import { emitAuthChange } from '../services/blogApi';
 import LanguageThemeControls from './LanguageThemeControls';
 import { useAppShell } from '../contexts/AppShellContext';
 
@@ -109,6 +110,7 @@ export default function Login({ onLogin, onBack, initialMode = 'login' }) {
     localStorage.setItem('auth_mode', 'user');
     localStorage.setItem('auth_token', token);
     localStorage.setItem(LOGIN_IDENTITY_KEY, user?.email || user?.username || fallbackIdentity);
+    emitAuthChange();
     onLogin('user');
   };
 
@@ -200,6 +202,7 @@ export default function Login({ onLogin, onBack, initialMode = 'login' }) {
     localStorage.setItem('auth_mode', 'guest');
     localStorage.removeItem('auth_token');
     localStorage.removeItem(LOGIN_IDENTITY_KEY);
+    emitAuthChange();
     onLogin('guest');
   };
 
