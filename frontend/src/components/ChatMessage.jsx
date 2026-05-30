@@ -118,7 +118,7 @@ export default function ChatMessage({ role, content, reasoningContent = '', reas
                   answerContent ? (
                     <div className="prose prose-invert max-w-none select-text touch-auto text-[15px] leading-relaxed [-webkit-touch-callout:default] [-webkit-user-select:text] sm:text-base sm:leading-loose sm:tracking-wide">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {answerContent}
+                        {processMarkdown(answerContent)}
                       </ReactMarkdown>
                     </div>
                   ) : null

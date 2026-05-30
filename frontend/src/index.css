@@ -277,6 +277,58 @@ body.chat-page-active {
   line-height: 1.35;
 }
 
+.md-content h1,
+.prose.prose-invert h1 {
+  font-size: 2rem;
+}
+
+.md-content h2,
+.prose.prose-invert h2 {
+  font-size: 1.75rem;
+}
+
+.md-content h3,
+.prose.prose-invert h3 {
+  font-size: 1.5rem;
+}
+
+.md-content h4,
+.prose.prose-invert h4 {
+  font-size: 1.25rem;
+}
+
+.md-content h5,
+.prose.prose-invert h5 {
+  font-size: 1.125rem;
+}
+
+.md-content h6,
+.prose.prose-invert h6 {
+  font-size: 1rem;
+}
+
+@media (max-width: 640px) {
+  .md-content h1,
+  .prose.prose-invert h1 {
+    font-size: 1.75rem;
+  }
+
+  .md-content h2,
+  .prose.prose-invert h2 {
+    font-size: 1.5rem;
+  }
+
+  .md-content h3,
+  .prose.prose-invert h3 {
+    font-size: 1.25rem;
+  }
+
+  .md-content h4,
+  .prose.prose-invert h4 {
+    font-size: 1.125rem;
+  }
+}
+
 /* Lists */
 .md-content ul,
 .md-content ol,
@@ -284,10 +336,46 @@ body.chat-page-active {
 .prose.prose-invert ol {
   padding-left: 1.5rem;
   margin: 0.75rem 0;
+  list-style-position: outside;
+}
+
+.md-content ul,
+.prose.prose-invert ul {
+  list-style-type: disc;
+}
+
+.md-content ol,
+.prose.prose-invert ol {
+  list-style-type: decimal;
+}
+
+.md-content ul ul,
+.prose.prose-invert ul ul {
+  list-style-type: circle;
+}
+
+.md-content ul ul ul,
+.prose.prose-invert ul ul ul {
+  list-style-type: square;
+}
+
+.md-content ol ol,
+.prose.prose-invert ol ol {
+  list-style-type: lower-alpha;
+}
+
+.md-content ol ol ol,
+.prose.prose-invert ol ol ol {
+  list-style-type: lower-roman;
 }
 
 .md-content li,
 .prose.prose-invert li {
+  margin: 0.25rem 0;
+}
+
+.md-content li > p,
+.prose.prose-invert li > p {
   margin: 0.25rem 0;
 }
 
