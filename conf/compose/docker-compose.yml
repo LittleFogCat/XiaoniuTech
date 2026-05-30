@@ -9,6 +9,7 @@ services:
       - ./conf/nginx:/etc/nginx:ro  # 挂载自定义配置
       - ./www:/usr/share/nginx/html:ro        # 挂载统一前端构建产物
       - /etc/letsencrypt:/etc/letsencrypt:ro  # 挂载证书文件
+      - /etc/nginx/conf.d:/hostconfd:ro          # 挂载宿主机配置文件
     restart: always
     networks:
       - niu-network
