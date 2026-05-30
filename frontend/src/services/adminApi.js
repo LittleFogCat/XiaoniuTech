@@ -1,29 +1,7 @@
+import { requestJson } from './httpClient';
+
 const API_BASE = '/api';
-const AUTH_TOKEN_KEY = 'auth_token';
 const STATISTICS_CID_KEY = 'statistics_cid';
-
-function getAuthToken() {
-  return localStorage.getItem(AUTH_TOKEN_KEY);
-}
-
-function getAuthHeaders(extraHeaders = {}) {
-  const token = getAuthToken();
-  return token
-    ? {
-        ...extraHeaders,
-        Authorization: `Bearer ${token}`,
-      }
-    : extraHeaders;
-}
-
-async function readJsonSafely(res) {
-  return res.json().catch(() => ({}));
-}
-
-async function throwRequestError(res, fallbackMessage) {
-  const data = await readJsonSafely(res);
-  throw new Error(data.error || `${fallbackMessage}: ${res.status}`);
-}
 
 export function getStatisticsCid() {
   const existing = localStorage.getItem(STATISTICS_CID_KEY);
@@ -39,230 +17,162 @@ export function getStatisticsCid() {
 }
 
 export async function fetchPermissionMe() {
-  const res = await fetch(`${API_BASE}/perm/me`, {
-    headers: getAuthHeaders(),
+  return requestJson(`${API_BASE}/perm/me`, {
+    fallbackMessage: 'Failed to fetch permission info',
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to fetch permission info');
-  }
-  return res.json();
 }
 
 export async function fetchUserGroupsOverview() {
-  const res = await fetch(`${API_BASE}/perm/usergroup`, {
-    headers: getAuthHeaders(),
+  return requestJson(`${API_BASE}/perm/usergroup`, {
+    fallbackMessage: 'Failed to fetch user groups',
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to fetch user groups');
-  }
-  return res.json();
 }
 
 export async function createUserGroup(data) {
-  const res = await fetch(`${API_BASE}/perm/usergroup`, {
+  return requestJson(`${API_BASE}/perm/usergroup`, {
     method: 'POST',
-    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    fallbackMessage: 'Failed to create user group',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to create user group');
-  }
-  return res.json();
 }
 
 export async function updateUserGroup(groupId, data) {
-  const res = await fetch(`${API_BASE}/perm/usergroup/${groupId}`, {
+  return requestJson(`${API_BASE}/perm/usergroup/${groupId}`, {
     method: 'PUT',
-    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    fallbackMessage: 'Failed to update user group',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to update user group');
-  }
-  return res.json();
 }
 
 export async function updateUserGroupPermissions(groupId, permissions) {
-  const res = await fetch(`${API_BASE}/perm/usergroup/${groupId}/perm`, {
+  return requestJson(`${API_BASE}/perm/usergroup/${groupId}/perm`, {
     method: 'PUT',
-    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    fallbackMessage: 'Failed to update user group permissions',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ permissions }),
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to update user group permissions');
-  }
-  return res.json();
 }
 
 export async function deleteUserGroup(groupId) {
-  const res = await fetch(`${API_BASE}/perm/usergroup/${groupId}`, {
+  return requestJson(`${API_BASE}/perm/usergroup/${groupId}`, {
     method: 'DELETE',
-    headers: getAuthHeaders(),
+    fallbackMessage: 'Failed to delete user group',
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to delete user group');
-  }
-  return res.json();
 }
 
 export async function fetchBlacklistEntries() {
-  const res = await fetch(`${API_BASE}/blacklist`, {
-    headers: getAuthHeaders(),
+  return requestJson(`${API_BASE}/blacklist`, {
+    fallbackMessage: 'Failed to fetch blacklist',
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to fetch blacklist');
-  }
-  return res.json();
 }
 
 export async function addBlacklistEntry(userId, blockReason) {
-  const res = await fetch(`${API_BASE}/blacklist/${userId}`, {
+  return requestJson(`${API_BASE}/blacklist/${userId}`, {
     method: 'POST',
-    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    fallbackMessage: 'Failed to add blacklist entry',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ blockReason }),
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to add blacklist entry');
-  }
-  return res.json();
 }
 
 export async function removeBlacklistEntry(userId) {
-  const res = await fetch(`${API_BASE}/blacklist/${userId}`, {
+  return requestJson(`${API_BASE}/blacklist/${userId}`, {
     method: 'DELETE',
-    headers: getAuthHeaders(),
+    fallbackMessage: 'Failed to remove blacklist entry',
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to remove blacklist entry');
-  }
-  return res.json();
 }
 
 export async function fetchChatManagementModels() {
-  const res = await fetch(`${API_BASE}/chat/management/models`, {
-    headers: getAuthHeaders(),
+  return requestJson(`${API_BASE}/chat/management/models`, {
+    fallbackMessage: 'Failed to fetch chat management models',
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to fetch chat management models');
-  }
-  return res.json();
 }
 
 export async function createChatManagementModel(data) {
-  const res = await fetch(`${API_BASE}/chat/management/models`, {
+  return requestJson(`${API_BASE}/chat/management/models`, {
     method: 'POST',
-    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    fallbackMessage: 'Failed to create chat management model',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to create chat management model');
-  }
-  return res.json();
 }
 
 export async function updateChatManagementModel(modelId, data) {
-  const res = await fetch(`${API_BASE}/chat/management/models/${encodeURIComponent(modelId)}`, {
+  return requestJson(`${API_BASE}/chat/management/models/${encodeURIComponent(modelId)}`, {
     method: 'PUT',
-    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    fallbackMessage: 'Failed to update chat management model',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to update chat management model');
-  }
-  return res.json();
 }
 
 export async function deleteChatManagementModel(modelId) {
-  const res = await fetch(`${API_BASE}/chat/management/models/${encodeURIComponent(modelId)}`, {
+  return requestJson(`${API_BASE}/chat/management/models/${encodeURIComponent(modelId)}`, {
     method: 'DELETE',
-    headers: getAuthHeaders(),
+    fallbackMessage: 'Failed to delete chat management model',
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to delete chat management model');
-  }
-  return res.json();
 }
 
 export async function copyChatManagementModel(modelId) {
-  const res = await fetch(`${API_BASE}/chat/management/models/${encodeURIComponent(modelId)}/copy`, {
+  return requestJson(`${API_BASE}/chat/management/models/${encodeURIComponent(modelId)}/copy`, {
     method: 'POST',
-    headers: getAuthHeaders(),
+    fallbackMessage: 'Failed to copy chat management model',
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to copy chat management model');
-  }
-  return res.json();
 }
 
 export async function fetchChatManagementAgents() {
-  const res = await fetch(`${API_BASE}/chat/management/agents`, {
-    headers: getAuthHeaders(),
+  return requestJson(`${API_BASE}/chat/management/agents`, {
+    fallbackMessage: 'Failed to fetch chat management agents',
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to fetch chat management agents');
-  }
-  return res.json();
 }
 
 export async function createChatManagementAgent(data) {
-  const res = await fetch(`${API_BASE}/chat/management/agents`, {
+  return requestJson(`${API_BASE}/chat/management/agents`, {
     method: 'POST',
-    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    fallbackMessage: 'Failed to create chat management agent',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to create chat management agent');
-  }
-  return res.json();
 }
 
 export async function updateChatManagementAgent(agentId, data) {
-  const res = await fetch(`${API_BASE}/chat/management/agents/${encodeURIComponent(agentId)}`, {
+  return requestJson(`${API_BASE}/chat/management/agents/${encodeURIComponent(agentId)}`, {
     method: 'PUT',
-    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    fallbackMessage: 'Failed to update chat management agent',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to update chat management agent');
-  }
-  return res.json();
 }
 
 export async function deleteChatManagementAgent(agentId) {
-  const res = await fetch(`${API_BASE}/chat/management/agents/${encodeURIComponent(agentId)}`, {
+  return requestJson(`${API_BASE}/chat/management/agents/${encodeURIComponent(agentId)}`, {
     method: 'DELETE',
-    headers: getAuthHeaders(),
+    fallbackMessage: 'Failed to delete chat management agent',
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to delete chat management agent');
-  }
-  return res.json();
 }
 
 export async function reportStatisticsEnter(data) {
-  const res = await fetch(`${API_BASE}/statistics/enter`, {
+  return requestJson(`${API_BASE}/statistics/enter`, {
     method: 'POST',
+    auth: false,
+    fallbackMessage: 'Failed to report statistics enter',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
     keepalive: true,
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to report statistics enter');
-  }
-  return res.json();
 }
 
 export async function reportStatisticsExit(data) {
-  const res = await fetch(`${API_BASE}/statistics/exit`, {
+  return requestJson(`${API_BASE}/statistics/exit`, {
     method: 'POST',
+    auth: false,
+    fallbackMessage: 'Failed to report statistics exit',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
     keepalive: true,
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to report statistics exit');
-  }
-  return res.json();
 }
 
 export function sendStatisticsExitBeacon(data) {
@@ -276,13 +186,9 @@ export function sendStatisticsExitBeacon(data) {
 
 export async function fetchStatisticsOverview(sub = 'overview', range = 'today') {
   const params = new URLSearchParams({ sub, range });
-  const res = await fetch(`${API_BASE}/statistics/overview?${params.toString()}`, {
-    headers: getAuthHeaders(),
+  return requestJson(`${API_BASE}/statistics/overview?${params.toString()}`, {
+    fallbackMessage: 'Failed to fetch statistics overview',
   });
-  if (!res.ok) {
-    await throwRequestError(res, 'Failed to fetch statistics overview');
-  }
-  return res.json();
 }
 
 export function getStatisticsExportUrl(range = 'today') {

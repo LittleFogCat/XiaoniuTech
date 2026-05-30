@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import BlogHeader from '../components/BlogHeader';
+import BlogPageLayout from '../components/layout/BlogPageLayout';
 import usePageSeo from '../hooks/usePageSeo';
-import { fetchManagePosts, trashPost, restorePost, deletePostPermanently, isLoggedIn, updatePost } from '../services/blogApi';
+import { fetchManagePosts, trashPost, restorePost, deletePostPermanently, updatePost } from '../services/blogApi';
 import { useAppShell } from '../contexts/AppShellContext';
+import { useAuthState } from '../contexts/AuthContext';
 
 export default function BlogManagePage() {
   const { t, formatDate, formatNumber } = useAppShell();
+  const { hasSession } = useAuthState();
   const [posts, setPosts] = useState([]);
   const [trashed, setTrashed] = useState([]);
   const [selectedByTab, setSelectedByTab] = useState({ posts: [], trashed: [] });
@@ -23,12 +25,12 @@ export default function BlogManagePage() {
   });
 
   useEffect(() => {
-    if (!isLoggedIn()) {
+    if (!hasSession) {
       navigate('/chat', { replace: true });
       return;
     }
     loadData();
-  }, [navigate, t]);
+  }, [hasSession, navigate, t]);
 
   async function loadData() {
     setLoading(true);
@@ -238,10 +240,10 @@ export default function BlogManagePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--page-bg)] text-[color:var(--text-primary)]">
-      <BlogHeader hideBackButton contentWidth="max-w-4xl" showSearch={false} />
-
-      <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
+    <BlogPageLayout
+      headerProps={{ hideBackButton: true, contentWidth: 'max-w-4xl', showSearch: false }}
+      mainClassName="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8"
+    >
         <h1
           className="mb-6 text-2xl font-bold text-[color:var(--text-primary)]"
           style={{ fontFamily: "'Space Grotesk', 'Noto Sans SC', sans-serif" }}
@@ -471,7 +473,6 @@ export default function BlogManagePage() {
             ))}
           </div>
         )}
-      </main>
-    </div>
+    </BlogPageLayout>
   );
 }

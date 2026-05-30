@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppShell } from '../contexts/AppShellContext';
+import { getAuthToken } from '../services/authStorage';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
@@ -162,7 +163,7 @@ export default function AvatarUpload({ currentUrl, username, onUploaded }) {
       const formData = new FormData();
       formData.append('file', resized);
 
-      const token = localStorage.getItem('auth_token');
+      const token = getAuthToken();
       console.log(LOG_PREFIX, 'uploading to /api/upload');
       const res = await fetch('/api/upload', {
         method: 'POST',

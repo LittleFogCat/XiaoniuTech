@@ -5,7 +5,12 @@ import {
   requestRegistration,
   verifyRegistration,
 } from '../services/api';
-import { emitAuthChange } from '../services/blogApi';
+import {
+  emitAuthChange,
+  setAuthMode,
+  setAuthToken,
+  setStoredLoggedIn,
+} from '../services/authStorage';
 import LanguageThemeControls from './LanguageThemeControls';
 import { useAppShell } from '../contexts/AppShellContext';
 
@@ -106,9 +111,9 @@ export default function Login({ onLogin, onBack, initialMode = 'login' }) {
   };
 
   const persistAuthenticatedUser = ({ user, token, fallbackIdentity }) => {
-    localStorage.setItem('isLoggedIn', 'true');
-    localStorage.setItem('auth_mode', 'user');
-    localStorage.setItem('auth_token', token);
+    setStoredLoggedIn(true);
+    setAuthMode('user');
+    setAuthToken(token);
     localStorage.setItem(LOGIN_IDENTITY_KEY, user?.email || user?.username || fallbackIdentity);
     emitAuthChange();
     onLogin('user');
@@ -198,9 +203,9 @@ export default function Login({ onLogin, onBack, initialMode = 'login' }) {
   };
 
   const handleGuestAccess = () => {
-    localStorage.setItem('isLoggedIn', 'true');
-    localStorage.setItem('auth_mode', 'guest');
-    localStorage.removeItem('auth_token');
+    setStoredLoggedIn(true);
+    setAuthMode('guest');
+    setAuthToken(null);
     localStorage.removeItem(LOGIN_IDENTITY_KEY);
     emitAuthChange();
     onLogin('guest');

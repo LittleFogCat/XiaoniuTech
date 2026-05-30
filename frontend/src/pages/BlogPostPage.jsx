@@ -3,11 +3,12 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { processMarkdown } from '../utils/markdown';
-import BlogHeader from '../components/BlogHeader';
 import BlogComment from '../components/BlogComment';
+import BlogPageLayout from '../components/layout/BlogPageLayout';
 import usePageSeo from '../hooks/usePageSeo';
-import { fetchPost, incrementViewCount, isLoggedIn, likePost, unlikePost, isPostLiked, markPostLiked, markPostUnliked } from '../services/blogApi';
+import { fetchPost, incrementViewCount, likePost, unlikePost, isPostLiked, markPostLiked, markPostUnliked } from '../services/blogApi';
 import { useAppShell } from '../contexts/AppShellContext';
+import { useAuthState } from '../contexts/AuthContext';
 
 function stripMarkdownForSeo(content) {
   return String(content || '')
@@ -22,6 +23,7 @@ function stripMarkdownForSeo(content) {
 
 export default function BlogPostPage() {
   const { t, formatDate, formatNumber } = useAppShell();
+  const { hasSession, username } = useAuthState();
   const { slug } = useParams();
   const siteOrigin = typeof window === 'undefined' ? '' : window.location.origin;
   const navigate = useNavigate();
@@ -97,8 +99,8 @@ export default function BlogPostPage() {
     }
   }, [slug, liked, likeLoading]);
 
-  const loggedIn = isLoggedIn();
-  const isAuthor = loggedIn && post && localStorage.getItem('auth_token');
+  const loggedIn = hasSession;
+  const isAuthor = Boolean(loggedIn && post && username);
 
   if (loading) {
     return (
@@ -110,22 +112,24 @@ export default function BlogPostPage() {
 
   if (error || !post) {
     return (
-      <div className="min-h-screen bg-[var(--page-bg)] text-[color:var(--text-primary)]">
-        <BlogHeader hideBackButton contentWidth="max-w-4xl" />
+      <BlogPageLayout
+        headerProps={{ hideBackButton: true, contentWidth: 'max-w-4xl' }}
+        mainClassName="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8"
+      >
         <div className="mx-auto max-w-4xl px-4 py-16 text-center">
           <h1 className="text-2xl font-bold text-[color:var(--text-primary)]">{t('blog.postNotFound')}</h1>
           <p className="mt-2 text-[color:var(--text-muted)]">{error || t('blog.postMissing')}</p>
           <Link to="/blog" className="mt-4 inline-block text-[color:var(--accent-solid)] underline">{t('blog.backToBlog')}</Link>
         </div>
-      </div>
+      </BlogPageLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--page-bg)] text-[color:var(--text-primary)]">
-      <BlogHeader hideBackButton contentWidth="max-w-4xl" />
-
-      <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
+    <BlogPageLayout
+      headerProps={{ hideBackButton: true, contentWidth: 'max-w-4xl' }}
+      mainClassName="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8"
+    >
         <article>
           <header className="mb-6">
             <div className="flex items-start gap-3">
@@ -189,7 +193,6 @@ export default function BlogPostPage() {
         </article>
 
         {post.published && <BlogComment slug={slug} />}
-      </main>
-    </div>
+    </BlogPageLayout>
   );
 }

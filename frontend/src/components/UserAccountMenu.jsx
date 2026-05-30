@@ -1,25 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchUserProfile, getUsernameFromToken, logout } from '../services/blogApi';
+import { logout } from '../services/blogApi';
 import { useAppShell } from '../contexts/AppShellContext';
+import { useAuthState } from '../contexts/AuthContext';
 
 export default function UserAccountMenu({ onLogout }) {
   const { t } = useAppShell();
+  const { profile, username } = useAuthState();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [profile, setProfile] = useState(null);
   const menuRef = useRef(null);
   const closeTimer = useRef(null);
-
-  useEffect(() => {
-    fetchUserProfile()
-      .then((user) => setProfile(user))
-      .catch(() => {});
-
-    return () => {
-      clearTimeout(closeTimer.current);
-    };
-  }, []);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -44,10 +35,10 @@ export default function UserAccountMenu({ onLogout }) {
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
+      clearTimeout(closeTimer.current);
     };
   }, [menuOpen]);
 
-  const username = getUsernameFromToken();
   const avatarLetter = (profile?.nickname || username || '?').charAt(0).toUpperCase();
   const displayName = profile?.nickname || username || t('common.nickname');
   const displayEmail = profile?.email || username || '';

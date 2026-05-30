@@ -1,38 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { isLoggedIn, getUsernameFromToken, logout, fetchUserProfile, importMarkdownArticles } from '../services/blogApi';
+import { logout, importMarkdownArticles } from '../services/blogApi';
 import { useAppShell } from '../contexts/AppShellContext';
+import { useAuthState } from '../contexts/AuthContext';
 import LanguageThemeControls from './LanguageThemeControls';
 
 export default function BlogHeader({ onSearch, hideBackButton = false, contentWidth = 'max-w-6xl', showSearch = true }) {
   const { t } = useAppShell();
+  const { hasSession, profile, username } = useAuthState();
   const [query, setQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [composeMenuOpen, setComposeMenuOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
-  const [profile, setProfile] = useState(null);
   const navigate = useNavigate();
-  const loggedIn = isLoggedIn();
+  const loggedIn = hasSession;
   const closeTimer = useRef(null);
   const composeCloseTimer = useRef(null);
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
-
-  useEffect(() => {
-    if (loggedIn) {
-      fetchUserProfile()
-        .then((user) => setProfile(user))
-        .catch(() => {});
-    }
-  }, [loggedIn]);
 
   useEffect(() => () => {
     clearTimeout(closeTimer.current);
     clearTimeout(composeCloseTimer.current);
   }, []);
 
-  const username = getUsernameFromToken();
   const avatarLetter = (profile?.nickname || username || '?').charAt(0).toUpperCase();
   const displayName = profile?.nickname || username || t('common.nickname');
   const displayEmail = profile?.email || username || '';

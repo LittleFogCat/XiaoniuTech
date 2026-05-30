@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AvatarUpload from '../components/AvatarUpload';
 import usePageSeo from '../hooks/usePageSeo';
-import { fetchUserProfile, updateUserProfile, isLoggedIn, getUsernameFromToken } from '../services/blogApi';
+import { updateUserProfile } from '../services/blogApi';
 import { useAppShell } from '../contexts/AppShellContext';
+import { useAuthState } from '../contexts/AuthContext';
 
 const LOG_PREFIX = '[SettingsPage]';
 
 export default function SettingsPage() {
   const { t } = useAppShell();
+  const { hasSession, username, profile, profileLoaded, profileError, refreshProfile } = useAuthState();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -23,6 +25,7 @@ export default function SettingsPage() {
   const [avatarFileId, setAvatarFileId] = useState(null);
   const [avatarUrl, setAvatarUrl] = useState('');
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [hydratedUsername, setHydratedUsername] = useState('');
 
   usePageSeo({
     title: t('settings.pageTitle'),
@@ -31,32 +34,48 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    console.log(LOG_PREFIX, 'page mounted');
-    if (!isLoggedIn()) {
+    if (!hasSession) {
       console.log(LOG_PREFIX, 'not logged in, redirecting to chat');
       navigate('/chat', { replace: true });
       return;
     }
-    console.log(LOG_PREFIX, 'fetching user profile');
-    fetchUserProfile()
-      .then((user) => {
-        console.log(LOG_PREFIX, 'profile loaded:', user);
-        setForm((prev) => ({
-          ...prev,
-          email: user.email || '',
-          nickname: user.nickname || '',
-          bio: user.bio || '',
-        }));
-        setAvatarFileId(user.avatarFileId || null);
-        setAvatarUrl(user.avatarUrl || '');
-        console.log(LOG_PREFIX, 'avatarFileId:', user.avatarFileId, 'avatarUrl:', user.avatarUrl);
-      })
-      .catch((err) => {
-        console.error(LOG_PREFIX, 'failed to load profile:', err);
-        setMessage({ type: 'error', text: t('settings.profileLoadingFailed') });
-      })
-      .finally(() => setLoading(false));
-  }, [navigate, t]);
+
+    if (!profileLoaded) {
+      return;
+    }
+
+    if (profileError) {
+      console.error(LOG_PREFIX, 'failed to load profile:', profileError);
+      setMessage({ type: 'error', text: profileError || t('settings.profileLoadingFailed') });
+      setLoading(false);
+      return;
+    }
+
+    if (!profile) {
+      setLoading(false);
+      return;
+    }
+
+    if (hydratedUsername === username) {
+      setLoading(false);
+      return;
+    }
+
+    console.log(LOG_PREFIX, 'profile loaded:', profile);
+    setForm((prev) => ({
+      ...prev,
+      email: profile.email || '',
+      nickname: profile.nickname || '',
+      bio: profile.bio || '',
+      currentPassword: '',
+      newPassword: '',
+    }));
+    setAvatarFileId(profile.avatarFileId || null);
+    setAvatarUrl(profile.avatarUrl || '');
+    setHydratedUsername(username || '');
+    setLoading(false);
+    console.log(LOG_PREFIX, 'avatarFileId:', profile.avatarFileId, 'avatarUrl:', profile.avatarUrl);
+  }, [hasSession, hydratedUsername, navigate, profile, profileError, profileLoaded, t, username]);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -70,7 +89,10 @@ export default function SettingsPage() {
 
     try {
       console.log(LOG_PREFIX, 'persisting avatar to profile');
-      await updateUserProfile({ avatarFileId: fileId });
+      const nextProfile = await updateUserProfile({ avatarFileId: fileId });
+      setAvatarFileId(nextProfile.avatarFileId || fileId);
+      setAvatarUrl(nextProfile.avatarUrl || url);
+      refreshProfile();
       console.log(LOG_PREFIX, 'avatar persisted successfully');
       setMessage({ type: 'success', text: t('settings.avatarUpdated') });
       setTimeout(() => setMessage(null), 3000);
@@ -104,9 +126,19 @@ export default function SettingsPage() {
       }
 
       console.log(LOG_PREFIX, 'saving profile:', data);
-      const result = await updateUserProfile(data);
-      console.log(LOG_PREFIX, 'save result:', result);
-      setForm((prev) => ({ ...prev, currentPassword: '', newPassword: '' }));
+      const nextProfile = await updateUserProfile(data);
+      console.log(LOG_PREFIX, 'save result:', nextProfile);
+      setForm((prev) => ({
+        ...prev,
+        email: nextProfile.email || prev.email,
+        nickname: nextProfile.nickname || '',
+        bio: nextProfile.bio || '',
+        currentPassword: '',
+        newPassword: '',
+      }));
+      setAvatarFileId(nextProfile.avatarFileId || null);
+      setAvatarUrl(nextProfile.avatarUrl || '');
+      refreshProfile();
       setMessage(null);
       setShowSuccessDialog(true);
     } catch (err) {
@@ -173,7 +205,7 @@ export default function SettingsPage() {
 
           <div>
             <label className={labelClass}>{t('settings.avatar')}</label>
-            <AvatarUpload currentUrl={avatarUrl} username={getUsernameFromToken() || form.email} onUploaded={handleAvatarUploaded} />
+            <AvatarUpload currentUrl={avatarUrl} username={username || form.email} onUploaded={handleAvatarUploaded} />
           </div>
 
           <div>

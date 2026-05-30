@@ -2,12 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import BackHomeButton from '../components/BackHomeButton';
-import LanguageThemeControls from '../components/LanguageThemeControls';
-import UserAccountMenu from '../components/UserAccountMenu';
+import ManagementPageLayout from '../components/layout/ManagementPageLayout';
 import { useAppShell } from '../contexts/AppShellContext';
+import { useAuthState } from '../contexts/AuthContext';
 import usePageSeo from '../hooks/usePageSeo';
-import { AUTH_CHANGE_EVENT, fetchUserProfile, isLoggedIn } from '../services/blogApi';
 import { createStockReview, deleteStockReview, fetchStockReview, updateStockReview } from '../services/stockApi';
 import { processMarkdown } from '../utils/markdown';
 
@@ -269,10 +267,7 @@ export default function StockReviewDetailPage() {
   const { reviewId } = useParams();
   const [searchParams] = useSearchParams();
   const { t } = useAppShell();
-  const [hasSession, setHasSession] = useState(() => isLoggedIn());
-  const [profile, setProfile] = useState(null);
-  const [profileLoaded, setProfileLoaded] = useState(() => !isLoggedIn());
-  const [profileError, setProfileError] = useState('');
+  const { hasSession, profile, profileLoaded, profileError } = useAuthState();
   const [review, setReview] = useState(null);
   const [editorDraft, setEditorDraft] = useState(createEmptyDraft());
   const [loading, setLoading] = useState(true);
@@ -309,50 +304,6 @@ export default function StockReviewDetailPage() {
     canonicalPath: isCreateMode ? '/stock/review/new' : `/stock/review/${encodeURIComponent(reviewId || '')}`,
     robots: 'noindex, nofollow',
   });
-
-  useEffect(() => {
-    const syncSession = () => setHasSession(isLoggedIn());
-    syncSession();
-    window.addEventListener('focus', syncSession);
-    window.addEventListener(AUTH_CHANGE_EVENT, syncSession);
-
-    return () => {
-      window.removeEventListener('focus', syncSession);
-      window.removeEventListener(AUTH_CHANGE_EVENT, syncSession);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!hasSession) {
-      setProfile(null);
-      setProfileLoaded(true);
-      setProfileError('');
-      return;
-    }
-
-    let cancelled = false;
-    setProfileLoaded(false);
-    setProfileError('');
-
-    fetchUserProfile()
-      .then((user) => {
-        if (!cancelled) {
-          setProfile(user);
-          setProfileLoaded(true);
-        }
-      })
-      .catch((nextError) => {
-        if (!cancelled) {
-          setProfile(null);
-          setProfileError(nextError.message || t('stock.loadProfileFailed'));
-          setProfileLoaded(true);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [hasSession, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -656,28 +607,21 @@ export default function StockReviewDetailPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[var(--page-bg)] text-[color:var(--text-primary)]">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.12),transparent_28%),radial-gradient(circle_at_82%_16%,rgba(14,165,233,0.10),transparent_26%),radial-gradient(circle_at_50%_100%,rgba(148,163,184,0.08),transparent_38%)]" />
-      </div>
-
-      <header className="sticky top-0 z-30 border-b border-[color:var(--surface-border)] bg-[var(--header-bg)] backdrop-blur-lg">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-3">
-            <BackHomeButton iconOnly />
-            <div>
-              <div className="text-[11px] uppercase tracking-[0.28em] text-[color:var(--accent-solid)]">{t('stock.heroEyebrow')}</div>
-              <div className="text-lg font-semibold text-[color:var(--text-primary)]">{isEditMode ? t('stock.editMode') : t('stock.detailTitle')}</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <LanguageThemeControls compact />
-            {profile ? <UserAccountMenu onLogout={() => { setHasSession(false); setProfile(null); }} /> : null}
-          </div>
+    <ManagementPageLayout
+      eyebrow={t('stock.heroEyebrow')}
+      title={isEditMode ? t('stock.editMode') : t('stock.detailTitle')}
+      rootClassName="relative min-h-screen overflow-hidden bg-[var(--page-bg)] text-[color:var(--text-primary)]"
+      background={(
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.12),transparent_28%),radial-gradient(circle_at_82%_16%,rgba(14,165,233,0.10),transparent_26%),radial-gradient(circle_at_50%_100%,rgba(148,163,184,0.08),transparent_38%)]" />
         </div>
-      </header>
-
-      <main className="relative z-10 mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 lg:py-8">
+      )}
+      headerContainerClassName="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6"
+      mainClassName="relative z-10 mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 lg:py-8"
+      eyebrowClassName="text-[11px] uppercase tracking-[0.28em] text-[color:var(--accent-solid)]"
+      titleClassName="text-lg font-semibold text-[color:var(--text-primary)]"
+      showUserAccountMenu={hasSession}
+    >
         <section className="rounded-[28px] border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] p-6 shadow-[var(--surface-shadow)] backdrop-blur-xl">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="max-w-2xl">
@@ -839,7 +783,6 @@ export default function StockReviewDetailPage() {
             </article>
           </section>
         ) : null}
-      </main>
-    </div>
+    </ManagementPageLayout>
   );
 }

@@ -12,7 +12,7 @@ import UserAccountMenu from '../components/UserAccountMenu';
 import useTransientScrollbar from '../hooks/useTransientScrollbar';
 import usePageSeo from '../hooks/usePageSeo';
 import { useAppShell } from '../contexts/AppShellContext';
-import { fetchUserProfile } from '../services/blogApi';
+import { useAuthState } from '../contexts/AuthContext';
 import {
   fetchModels,
   fetchIdentities,
@@ -27,8 +27,6 @@ import * as mock from '../services/mock';
 
 const USE_MOCK = false;
 const GUEST_MODE = 'guest';
-const AUTH_MODE_KEY = 'auth_mode';
-const AUTH_TOKEN_KEY = 'auth_token';
 const GUEST_CHAT_STORAGE_KEY = 'guest_chat_records';
 const GUEST_CHAT_LIMIT = 10;
 const CHAT_VIEW = {
@@ -40,6 +38,7 @@ const STREAM_UI_UPDATE_INTERVAL_MS = 100;
 const SCROLL_BOTTOM_THRESHOLD_PX = 48;
 const SCROLL_POSITION_EPSILON_PX = 0.5;
 const PAID_CONTACT_MESSAGE = '当前资源需要联系站长开通后使用。请通过首页底部微信或邮件 littlefogcat@foxmail.com 联系站长。';
+const EMPTY_PERMISSIONS = [];
 
 function setNamedMetaContent(name, content) {
   let meta = document.querySelector(`meta[name="${name}"]`);
@@ -263,9 +262,15 @@ function resolveReasoningDurationMs(startedAt, reasoningContent, currentDuration
 
 export default function ChatPage() {
   const { t, theme } = useAppShell();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [authMode, setAuthMode] = useState('user');
-  const [hasCheckedLogin, setHasCheckedLogin] = useState(false);
+  const {
+    hasSession: hasAuthSession,
+    isGuestMode,
+    isLoggedIn,
+    profile,
+    profileLoaded,
+    profileError,
+    logout,
+  } = useAuthState();
   const [models, setModels] = useState([]);
   const [identities, setIdentities] = useState([]);
   const [selectedModel, setSelectedModel] = useState('');
@@ -278,7 +283,6 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [guestLimitNotice, setGuestLimitNotice] = useState('');
-  const [viewerPermissions, setViewerPermissions] = useState([]);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const chatScrollRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -286,11 +290,14 @@ export default function ChatPage() {
   const isPinnedToBottomRef = useRef(true);
   const { isScrollbarVisible: isChatScrollbarVisible, markScrollbarVisible: markChatScrollbarVisible } = useTransientScrollbar();
   const safeMessages = Array.isArray(currentChat?.messages) ? currentChat.messages : [];
-  const isGuest = authMode === GUEST_MODE;
+  const isGuest = isGuestMode;
+  const viewerPermissions = isGuest
+    ? EMPTY_PERMISSIONS
+    : (Array.isArray(profile?.permissions) ? profile.permissions : EMPTY_PERMISSIONS);
   const activeIdentity = resolveIdentityMeta(currentChat, identities, t);
   const hasConversationStarted = safeMessages.length > 0;
   const showCenteredComposer = viewMode === CHAT_VIEW.conversation && models.length > 0 && (!currentChat || !hasConversationStarted);
-  const hasAccountSession = isLoggedIn && !isGuest;
+  const hasAccountSession = hasAuthSession && !isGuest;
   const assistantName = activeIdentity?.name || t('common.assistantName');
   const assistantAvatarUrl = activeIdentity?.avatarUrl || '';
   const activeIdentityLabel = activeIdentity ? [activeIdentity.role, activeIdentity.name].filter(Boolean).join(' · ') : '';
@@ -355,23 +362,16 @@ export default function ChatPage() {
     setMobileActionsOpen(false);
   }, [viewMode, currentChat?.id, mobileSidebarOpen]);
 
-  const handleLogin = (mode = 'user') => {
-    setAuthMode(mode);
-    setIsLoggedIn(true);
+  const handleLogin = () => {
     setViewMode(CHAT_VIEW.conversation);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem(AUTH_MODE_KEY);
-    localStorage.removeItem(AUTH_TOKEN_KEY);
-    setIsLoggedIn(false);
-    setAuthMode('user');
+    logout();
     setChats([]);
     setCurrentChat(null);
     setViewMode(CHAT_VIEW.conversation);
     setGuestLimitNotice('');
-    setViewerPermissions([]);
   };
 
   const showUnavailableMessage = (resourceType, isFree) => {
@@ -464,16 +464,18 @@ export default function ChatPage() {
   };
 
   useEffect(() => {
-    const savedMode = localStorage.getItem(AUTH_MODE_KEY) || 'user';
-    const hasToken = Boolean(localStorage.getItem(AUTH_TOKEN_KEY));
-    const loggedIn = localStorage.getItem('isLoggedIn') === 'true';
-    setIsLoggedIn(savedMode === GUEST_MODE ? loggedIn : loggedIn && hasToken);
-    setAuthMode(savedMode);
-    setHasCheckedLogin(true);
-  }, []);
+    if (!isLoggedIn) return;
+    if (!isGuest && !profileLoaded) return;
 
-  useEffect(() => {
-    if (!hasCheckedLogin || !isLoggedIn) return;
+    if (!isGuest && profileError) {
+      if (/\b401\b/.test(profileError)) {
+        handleLogout();
+        return;
+      }
+
+      setLoadError(profileError);
+      return;
+    }
 
     setLoadError(null);
     setGuestLimitNotice('');
@@ -495,13 +497,12 @@ export default function ChatPage() {
       console.error('Failed to load identities:', error);
       return [];
     });
-    const profilePromise = isGuest ? Promise.resolve(null) : fetchUserProfile();
 
-    Promise.all([modelPromise, chatPromise, identityPromise, profilePromise])
-      .then(([modelData, chatList, identityList, profile]) => {
+    Promise.all([modelPromise, chatPromise, identityPromise])
+      .then(([modelData, chatList, identityList]) => {
         const availableModels = modelData.models;
         const defaultModel = modelData.defaultModel;
-        const permissions = Array.isArray(profile?.permissions) ? profile.permissions : [];
+        const permissions = isGuest ? [] : viewerPermissions;
         const fallbackModel = pickInitialModel(availableModels, defaultModel, permissions, isGuest);
         const normalizedChats = chatList
           .map(chat => ({
@@ -513,7 +514,6 @@ export default function ChatPage() {
 
         setModels(availableModels);
         setIdentities(identityList);
-        setViewerPermissions(permissions);
         setChats(sortChatsByUpdatedAt(normalizedChats));
         setCurrentChat(null);
         setSelectedModel(fallbackModel);
@@ -531,7 +531,7 @@ export default function ChatPage() {
         }
         setLoadError(err.message);
       });
-  }, [hasCheckedLogin, isLoggedIn, isGuest]);
+  }, [isGuest, isLoggedIn, profileError, profileLoaded, viewerPermissions]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1176,14 +1176,6 @@ export default function ChatPage() {
       setIsLoading(false);
     }
   };
-
-  if (!hasCheckedLogin) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--page-bg-chat)]">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-sky-300/60 border-t-transparent" />
-      </div>
-    );
-  }
 
   if (!isLoggedIn) {
     return <Login onLogin={handleLogin} />;

@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import MarkdownEditor from '../components/MarkdownEditor';
 import usePageSeo from '../hooks/usePageSeo';
-import { autosavePost, createPost, updatePost, fetchPostUnpublished, isLoggedIn } from '../services/blogApi';
+import { autosavePost, createPost, updatePost, fetchPostUnpublished } from '../services/blogApi';
 import { useAppShell } from '../contexts/AppShellContext';
+import { useAuthState } from '../contexts/AuthContext';
 
 const NEW_POST_AUTOSAVE_KEY = 'blog_editor_new_autosave';
 
@@ -33,6 +34,7 @@ function clearNewPostAutosave() {
 
 export default function BlogEditorPage() {
   const { t } = useAppShell();
+  const { hasSession } = useAuthState();
   const { slug } = useParams();
   const navigate = useNavigate();
   const [post, setPost] = useState(null);
@@ -50,7 +52,7 @@ export default function BlogEditorPage() {
   });
 
   useEffect(() => {
-    if (!isLoggedIn()) {
+    if (!hasSession) {
       navigate('/chat', { replace: true });
       return;
     }
@@ -82,7 +84,7 @@ export default function BlogEditorPage() {
     } else {
       setDraftState(readNewPostAutosave());
     }
-  }, [slug, isEditing, navigate, t]);
+  }, [hasSession, slug, isEditing, navigate, t]);
 
   async function handleSave(data) {
     setSubmitError('');

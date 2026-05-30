@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { fetchComments, addComment, isLoggedIn } from '../services/blogApi';
+import { fetchComments, addComment } from '../services/blogApi';
 import { Link } from 'react-router-dom';
 import { useAppShell } from '../contexts/AppShellContext';
+import { useAuthState } from '../contexts/AuthContext';
 
 function CommentAvatar({ authorProfile }) {
   const nickname = authorProfile?.nickname || '?';
@@ -27,12 +28,13 @@ function CommentAvatar({ authorProfile }) {
 
 export default function BlogComment({ slug }) {
   const { t, formatDate, formatNumber } = useAppShell();
+  const { hasSession } = useAuthState();
   const [comments, setComments] = useState([]);
   const [total, setTotal] = useState(0);
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [page, setPage] = useState(1);
-  const loggedIn = isLoggedIn();
+  const loggedIn = hasSession;
 
   useEffect(() => {
     fetchComments(slug, { page }).then((data) => {

@@ -1,8 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import BackHomeButton from '../components/BackHomeButton';
-import LanguageThemeControls from '../components/LanguageThemeControls';
-import UserAccountMenu from '../components/UserAccountMenu';
 import {
   copyChatManagementModel,
   createChatManagementAgent,
@@ -17,8 +14,9 @@ import {
 } from '../services/adminApi';
 import usePageSeo from '../hooks/usePageSeo';
 import { useAppShell } from '../contexts/AppShellContext';
-import { isLoggedIn } from '../services/blogApi';
+import { useAuthState } from '../contexts/AuthContext';
 import AvatarUpload from '../components/AvatarUpload';
+import ManagementPageLayout from '../components/layout/ManagementPageLayout';
 
 const EMPTY_MODEL_DRAFT = {
   id: '',
@@ -139,7 +137,7 @@ export default function ChatManagePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useAppShell();
-  const hasSession = isLoggedIn();
+  const { hasSession } = useAuthState();
   const [access, setAccess] = useState(null);
   const [models, setModels] = useState([]);
   const [agents, setAgents] = useState([]);
@@ -387,24 +385,7 @@ export default function ChatManagePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--page-bg)] text-[color:var(--text-primary)]">
-      <header className="sticky top-0 z-30 border-b border-[color:var(--surface-border)] bg-[var(--header-bg)] backdrop-blur-lg">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 sm:py-4">
-          <div className="flex items-center gap-3">
-            <BackHomeButton iconOnly />
-            <div>
-              <div className="text-xs uppercase tracking-[0.28em] text-[color:var(--accent-solid)]">{t('chatManage.chatModule')}</div>
-              <h1 className="text-xl font-semibold">{t('chatManage.pageTitle')}</h1>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <LanguageThemeControls compact />
-            <UserAccountMenu />
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+    <ManagementPageLayout eyebrow={t('chatManage.chatModule')} title={t('chatManage.pageTitle')}>
         <div className="mb-5 flex flex-wrap gap-2">
           {canManageModels && (
             <button type="button" onClick={() => updateTab('models')} className={`rounded-xl px-4 py-2 text-sm transition ${currentTab === 'models' ? 'bg-[var(--accent-soft)] text-[color:var(--text-primary)]' : 'bg-[var(--surface-bg)] text-[color:var(--text-secondary)] hover:bg-[var(--surface-hover)]'}`}>
@@ -578,7 +559,6 @@ export default function ChatManagePage() {
             </section>
           </div>
         )}
-      </main>
-    </div>
+    </ManagementPageLayout>
   );
 }

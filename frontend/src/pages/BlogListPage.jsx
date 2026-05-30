@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import BlogHeader from '../components/BlogHeader';
 import BlogSidebar from '../components/BlogSidebar';
+import BlogPageLayout from '../components/layout/BlogPageLayout';
 import usePageSeo from '../hooks/usePageSeo';
 import { fetchPosts, isLoggedIn } from '../services/blogApi';
 import { useAppShell } from '../contexts/AppShellContext';
@@ -56,10 +56,7 @@ export default function BlogListPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[var(--page-bg)] text-[color:var(--text-primary)]">
-      <BlogHeader onSearch={handleSearch} />
-
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+    <BlogPageLayout headerProps={{ onSearch: handleSearch }}>
         <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
           <div className="min-w-0 flex-1">
             {tag && (
@@ -141,7 +138,6 @@ export default function BlogListPage() {
             <BlogSidebar />
           </div>
         </div>
-      </main>
-    </div>
+    </BlogPageLayout>
   );
 }

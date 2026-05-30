@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import BlogHeader from '../components/BlogHeader';
+import BlogPageLayout from '../components/layout/BlogPageLayout';
 import usePageSeo from '../hooks/usePageSeo';
 import { fetchPosts } from '../services/blogApi';
 import { useAppShell } from '../contexts/AppShellContext';
@@ -47,10 +47,10 @@ export default function UserHomePage({ nickname: propNickname }) {
   const avatarHue = (profile?.nickname || nickname || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360;
 
   return (
-    <div className="min-h-screen bg-[var(--page-bg)] text-[color:var(--text-primary)]">
-      <BlogHeader contentWidth="max-w-4xl" />
-
-      <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
+    <BlogPageLayout
+      headerProps={{ contentWidth: 'max-w-4xl' }}
+      mainClassName="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8"
+    >
         {loading ? (
           <div className="py-12 text-center text-[color:var(--text-faint)]">{t('common.loading')}</div>
         ) : !profile ? (
@@ -131,7 +131,6 @@ export default function UserHomePage({ nickname: propNickname }) {
             )}
           </>
         )}
-      </main>
-    </div>
+    </BlogPageLayout>
   );
 }

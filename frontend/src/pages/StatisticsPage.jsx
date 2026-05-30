@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import BackHomeButton from '../components/BackHomeButton';
-import LanguageThemeControls from '../components/LanguageThemeControls';
-import UserAccountMenu from '../components/UserAccountMenu';
 import usePageSeo from '../hooks/usePageSeo';
 import { fetchPermissionMe, fetchStatisticsOverview, getStatisticsExportUrl } from '../services/adminApi';
-import { isLoggedIn } from '../services/blogApi';
 import { useAppShell } from '../contexts/AppShellContext';
+import { useAuthState } from '../contexts/AuthContext';
+import ManagementPageLayout from '../components/layout/ManagementPageLayout';
 
 const SUB_PAGES = [
   { key: 'overview', label: '统计概览' },
@@ -265,7 +263,7 @@ export default function StatisticsPage() {
   const { formatDate, formatNumber } = useAppShell();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const hasSession = isLoggedIn();
+  const { hasSession } = useAuthState();
   const [access, setAccess] = useState(null);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -363,25 +361,11 @@ export default function StatisticsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[var(--page-bg)] text-[color:var(--text-primary)]">
-      <header className="sticky top-0 z-30 border-b border-[color:var(--surface-border)] bg-[var(--header-bg)] backdrop-blur-lg">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 sm:py-4">
-          <div className="flex items-center gap-3">
-            <BackHomeButton iconOnly />
-            <div>
-              <div className="text-xs uppercase tracking-[0.28em] text-[color:var(--accent-solid)]">Statistics</div>
-              <h1 className="text-xl font-semibold">访问统计</h1>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <LanguageThemeControls compact />
-            <UserAccountMenu />
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto flex max-w-7xl gap-6 px-4 py-6 sm:px-6 sm:py-8">
+    <ManagementPageLayout
+      eyebrow="Statistics"
+      title="访问统计"
+      mainClassName="mx-auto flex max-w-7xl gap-6 px-4 py-6 sm:px-6 sm:py-8"
+    >
         <aside className="hidden w-64 shrink-0 lg:block">
           <div className="rounded-3xl border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] p-3">
             {SUB_PAGES.map((item) => (
@@ -559,7 +543,6 @@ export default function StatisticsPage() {
             </>
           )}
         </section>
-      </main>
-    </div>
+    </ManagementPageLayout>
   );
 }

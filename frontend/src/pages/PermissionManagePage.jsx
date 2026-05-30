@@ -1,8 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import BackHomeButton from '../components/BackHomeButton';
-import LanguageThemeControls from '../components/LanguageThemeControls';
-import UserAccountMenu from '../components/UserAccountMenu';
 import {
   addBlacklistEntry,
   createUserGroup,
@@ -15,7 +12,8 @@ import {
   updateUserGroupPermissions,
 } from '../services/adminApi';
 import usePageSeo from '../hooks/usePageSeo';
-import { isLoggedIn } from '../services/blogApi';
+import { useAuthState } from '../contexts/AuthContext';
+import ManagementPageLayout from '../components/layout/ManagementPageLayout';
 
 function normalizeMemberIds(group) {
   return Array.isArray(group?.members) ? group.members.map((member) => member.id) : [];
@@ -24,7 +22,7 @@ function normalizeMemberIds(group) {
 export default function PermissionManagePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const hasSession = isLoggedIn();
+  const { hasSession } = useAuthState();
   const [access, setAccess] = useState(null);
   const [groups, setGroups] = useState([]);
   const [users, setUsers] = useState([]);
@@ -281,24 +279,7 @@ export default function PermissionManagePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--page-bg)] text-[color:var(--text-primary)]">
-      <header className="sticky top-0 z-30 border-b border-[color:var(--surface-border)] bg-[var(--header-bg)] backdrop-blur-lg">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 sm:py-4">
-          <div className="flex items-center gap-3">
-            <BackHomeButton iconOnly />
-            <div>
-              <div className="text-xs uppercase tracking-[0.28em] text-[color:var(--accent-solid)]">Permissions</div>
-              <h1 className="text-xl font-semibold">权限管理</h1>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <LanguageThemeControls compact />
-            <UserAccountMenu />
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+    <ManagementPageLayout eyebrow="Permissions" title="权限管理">
         <div className="mb-5 flex flex-wrap gap-2">
           {canViewGroups && (
             <button
@@ -474,7 +455,6 @@ export default function PermissionManagePage() {
             </section>
           </div>
         )}
-      </main>
-    </div>
+    </ManagementPageLayout>
   );
 }
