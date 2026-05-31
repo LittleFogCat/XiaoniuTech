@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 const APP_LOCALE_KEY = 'app_locale';
 const APP_THEME_KEY = 'app_theme';
@@ -1520,6 +1520,51 @@ export function AppShellProvider({ children }) {
   const hasThemeMountedRef = useRef(false);
   const themeTransitionTimerRef = useRef(null);
 
+  const dictionary = useMemo(() => resolveDictionary(locale), [locale]);
+
+  const t = useCallback((key, params) => {
+    const resolved = getNestedMessage(dictionary, key) ?? getNestedMessage(DICTIONARIES[DEFAULT_LOCALE], key) ?? key;
+    return typeof resolved === 'string' ? interpolate(resolved, params) : resolved;
+  }, [dictionary]);
+
+  const formatDate = useCallback((valueToFormat, options) => {
+    if (!valueToFormat) {
+      return '';
+    }
+
+    const date = valueToFormat instanceof Date ? valueToFormat : new Date(valueToFormat);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+
+    return new Intl.DateTimeFormat(locale, options).format(date);
+  }, [locale]);
+
+  const formatNumber = useCallback((valueToFormat) => new Intl.NumberFormat(locale).format(Number(valueToFormat) || 0), [locale]);
+
+  const formatRelativeTime = useCallback((timestamp) => {
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+
+    const diff = Date.now() - date.getTime();
+    if (diff < 60000) {
+      return t('time.justNow');
+    }
+    if (diff < 3600000) {
+      return t('time.minutesAgo', { count: Math.floor(diff / 60000) });
+    }
+    if (diff < 86400000) {
+      return t('time.hoursAgo', { count: Math.floor(diff / 3600000) });
+    }
+    if (diff < 604800000) {
+      return t('time.daysAgo', { count: Math.floor(diff / 86400000) });
+    }
+
+    return formatDate(date, { month: 'short', day: 'numeric' });
+  }, [formatDate, t]);
+
   useEffect(() => {
     window.localStorage.setItem(APP_LOCALE_KEY, locale);
     document.documentElement.lang = locale;
@@ -1553,51 +1598,6 @@ export function AppShellProvider({ children }) {
   }, []);
 
   const value = useMemo(() => {
-    const dictionary = resolveDictionary(locale);
-
-    const t = (key, params) => {
-      const resolved = getNestedMessage(dictionary, key) ?? getNestedMessage(DICTIONARIES[DEFAULT_LOCALE], key) ?? key;
-      return typeof resolved === 'string' ? interpolate(resolved, params) : resolved;
-    };
-
-    const formatDate = (valueToFormat, options) => {
-      if (!valueToFormat) {
-        return '';
-      }
-
-      const date = valueToFormat instanceof Date ? valueToFormat : new Date(valueToFormat);
-      if (Number.isNaN(date.getTime())) {
-        return '';
-      }
-
-      return new Intl.DateTimeFormat(locale, options).format(date);
-    };
-
-    const formatNumber = (valueToFormat) => new Intl.NumberFormat(locale).format(Number(valueToFormat) || 0);
-
-    const formatRelativeTime = (timestamp) => {
-      const date = new Date(timestamp);
-      if (Number.isNaN(date.getTime())) {
-        return '';
-      }
-
-      const diff = Date.now() - date.getTime();
-      if (diff < 60000) {
-        return t('time.justNow');
-      }
-      if (diff < 3600000) {
-        return t('time.minutesAgo', { count: Math.floor(diff / 60000) });
-      }
-      if (diff < 86400000) {
-        return t('time.hoursAgo', { count: Math.floor(diff / 3600000) });
-      }
-      if (diff < 604800000) {
-        return t('time.daysAgo', { count: Math.floor(diff / 86400000) });
-      }
-
-      return formatDate(date, { month: 'short', day: 'numeric' });
-    };
-
     const localeOption = LOCALE_OPTIONS.find(option => option.code === locale) || LOCALE_OPTIONS[0];
 
     return {
@@ -1613,7 +1613,7 @@ export function AppShellProvider({ children }) {
       formatNumber,
       formatRelativeTime,
     };
-  }, [locale, theme]);
+  }, [formatDate, formatNumber, formatRelativeTime, locale, t, theme]);
 
   return <AppShellContext.Provider value={value}>{children}</AppShellContext.Provider>;
 }
