@@ -18,6 +18,13 @@
 - 使用 Docker 或 Nginx 验证前，先构建 [frontend/dist](../frontend/dist)，因为静态站点根目录依赖该产物。
 - 变更部署产物、目录布局或容器挂载时，要同步检查 [script/build.bat](../script/build.bat)、[script/build.ps1](../script/build.ps1)、[script/install.sh](../script/install.sh)、[script/deploy.sh](../script/deploy.sh) 和 [doc/部署说明.md](../doc/部署说明.md)。
 
+## Git 提交约定
+
+- 提交信息统一使用 Conventional Commits：`type(scope): summary`，其中 `scope` 可选。
+- `summary` 保持简洁，直接描述本次提交的单一目的；避免使用笼统的 `update`、`fix bug` 或无上下文的中文长句。
+- 常用 `type` 包括 `feat`、`fix`、`docs`、`refactor`、`chore`；只有确实跨模块或无需限定范围时才省略 `scope`。
+- 当前仓库的推荐示例：`fix(frontend): prevent theme toggle remounts`、`docs: add git commit convention`。
+
 ## 目录边界与归属
 
 - 活跃前端只在 [frontend](../frontend)；[frontend/chat](../frontend/chat) 是旧版实现，[frontend/home.bak](../frontend/home.bak) 是备份，不应继续作为当前功能开发入口。
