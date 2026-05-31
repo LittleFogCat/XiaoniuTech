@@ -5,7 +5,9 @@ const APP_THEME_KEY = 'app_theme';
 const DEFAULT_LOCALE = 'zh-CN';
 const DEFAULT_THEME = 'dark';
 const THEME_TRANSITION_DURATION_MS = 1000;
-const THEME_TRANSITION_CLEANUP_MS = THEME_TRANSITION_DURATION_MS + 160;
+const THEME_TRANSITION_SETTLE_MS = 120;
+const THEME_TRANSITION_FALLBACK_MS = THEME_TRANSITION_DURATION_MS + 800;
+const THEME_TRANSITION_PROPERTIES = ['background-color', 'border-color', 'box-shadow', 'color', 'fill', 'opacity', 'stroke', 'text-decoration-color'];
 
 const LOCALE_OPTIONS = [
   { code: 'zh-CN', shortLabel: '简', label: '简体中文' },
@@ -1521,6 +1523,19 @@ export function AppShellProvider({ children }) {
   const [theme, setTheme] = useState(getStoredTheme);
   const hasThemeMountedRef = useRef(false);
   const themeTransitionTimerRef = useRef(null);
+  const themeTransitionEventHandlerRef = useRef(null);
+  const themeTransitionTokenRef = useRef(0);
+
+  function clearThemeTransitionListeners() {
+    const handler = themeTransitionEventHandlerRef.current;
+    if (!handler) {
+      return;
+    }
+
+    document.removeEventListener('transitioncancel', handler, true);
+    document.removeEventListener('transitionend', handler, true);
+    themeTransitionEventHandlerRef.current = null;
+  }
 
   const dictionary = useMemo(() => resolveDictionary(locale), [locale]);
 
@@ -1576,15 +1591,58 @@ export function AppShellProvider({ children }) {
     window.localStorage.setItem(APP_THEME_KEY, theme);
     const root = document.documentElement;
     const { body } = document;
+    const clearThemeTransitionClasses = () => {
+      root.classList.remove('theme-transitioning');
+      body.classList.remove('theme-transitioning');
+    };
 
     if (hasThemeMountedRef.current) {
+      const transitionToken = themeTransitionTokenRef.current + 1;
+      const themeTransitionCleanupDeadline = Date.now() + THEME_TRANSITION_FALLBACK_MS;
+      themeTransitionTokenRef.current = transitionToken;
+      const scheduleThemeTransitionCleanup = (delay) => {
+        const remaining = Math.max(0, themeTransitionCleanupDeadline - Date.now());
+        const timeoutDelay = Math.min(delay, remaining);
+
+        window.clearTimeout(themeTransitionTimerRef.current);
+        themeTransitionTimerRef.current = window.setTimeout(() => {
+          if (themeTransitionTokenRef.current !== transitionToken) {
+            return;
+          }
+
+          clearThemeTransitionListeners();
+          clearThemeTransitionClasses();
+        }, timeoutDelay);
+      };
+
       root.classList.add('theme-transitioning');
       body.classList.add('theme-transitioning');
-      window.clearTimeout(themeTransitionTimerRef.current);
-      themeTransitionTimerRef.current = window.setTimeout(() => {
-        root.classList.remove('theme-transitioning');
-        body.classList.remove('theme-transitioning');
-      }, THEME_TRANSITION_CLEANUP_MS);
+      clearThemeTransitionListeners();
+
+      const handleThemeTransitionEvent = (event) => {
+        if (themeTransitionTokenRef.current !== transitionToken) {
+          return;
+        }
+
+        if (!(event.target instanceof Element)) {
+          return;
+        }
+
+        if (!THEME_TRANSITION_PROPERTIES.includes(event.propertyName)) {
+          return;
+        }
+
+        if (!root.contains(event.target)) {
+          return;
+        }
+
+        scheduleThemeTransitionCleanup(THEME_TRANSITION_SETTLE_MS);
+      };
+
+      themeTransitionEventHandlerRef.current = handleThemeTransitionEvent;
+      document.addEventListener('transitioncancel', handleThemeTransitionEvent, true);
+      document.addEventListener('transitionend', handleThemeTransitionEvent, true);
+      scheduleThemeTransitionCleanup(THEME_TRANSITION_FALLBACK_MS);
     } else {
       hasThemeMountedRef.current = true;
     }
@@ -1595,6 +1653,7 @@ export function AppShellProvider({ children }) {
 
   useEffect(() => () => {
     window.clearTimeout(themeTransitionTimerRef.current);
+    clearThemeTransitionListeners();
     document.documentElement.classList.remove('theme-transitioning');
     document.body.classList.remove('theme-transitioning');
   }, []);
