@@ -4,6 +4,8 @@ const APP_LOCALE_KEY = 'app_locale';
 const APP_THEME_KEY = 'app_theme';
 const DEFAULT_LOCALE = 'zh-CN';
 const DEFAULT_THEME = 'dark';
+const THEME_TRANSITION_DURATION_MS = 1000;
+const THEME_TRANSITION_CLEANUP_MS = THEME_TRANSITION_DURATION_MS + 160;
 
 const LOCALE_OPTIONS = [
   { code: 'zh-CN', shortLabel: '简', label: '简体中文' },
@@ -1582,7 +1584,7 @@ export function AppShellProvider({ children }) {
       themeTransitionTimerRef.current = window.setTimeout(() => {
         root.classList.remove('theme-transitioning');
         body.classList.remove('theme-transitioning');
-      }, 1000);
+      }, THEME_TRANSITION_CLEANUP_MS);
     } else {
       hasThemeMountedRef.current = true;
     }
