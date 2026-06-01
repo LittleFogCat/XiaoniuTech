@@ -338,6 +338,10 @@ export default function ChatPage() {
     }
 
     const handlePointerDown = (event) => {
+      if (event.target instanceof Element && event.target.closest('[data-model-select-content="true"]')) {
+        return;
+      }
+
       if (mobileActionsRef.current && !mobileActionsRef.current.contains(event.target)) {
         setMobileActionsOpen(false);
       }

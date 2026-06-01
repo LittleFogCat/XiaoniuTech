@@ -32,6 +32,7 @@ export default function ModelSelect({ models, value, onChange }) {
           align="start"
           sideOffset={6}
           collisionPadding={8}
+          data-model-select-content="true"
           className="z-50 min-w-[var(--radix-select-trigger-width)] w-max max-w-[min(92vw,30rem)] overflow-hidden rounded-[22px] border border-[color:var(--surface-border)] bg-[var(--surface-bg-strong)] shadow-[var(--surface-shadow)] backdrop-blur-xl"
         >
           <Select.Viewport className="p-2">
