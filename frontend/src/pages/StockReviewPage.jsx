@@ -4,7 +4,9 @@ import ManagementPageLayout from '../components/layout/ManagementPageLayout';
 import { useAppShell } from '../contexts/AppShellContext';
 import { useAuthState } from '../contexts/AuthContext';
 import usePageSeo from '../hooks/usePageSeo';
-import { fetchStockReviews } from '../services/stockApi';
+import { fetchAllStockReviews, fetchStockReviews } from '../services/stockApi';
+
+const PAGE_SIZE = 12;
 
 function readFilters(searchParams) {
   return {
@@ -12,6 +14,7 @@ function readFilters(searchParams) {
     dateFrom: searchParams.get('dateFrom') || '',
     dateTo: searchParams.get('dateTo') || '',
     sector: searchParams.get('sector') || '',
+    featuredOnly: searchParams.get('featured') !== '0',
   };
 }
 
@@ -67,6 +70,19 @@ function buildReviewSummary(review, t) {
   return t('stock.emptySummary');
 }
 
+function pickFeaturedReviews(reviews) {
+  const seenDates = new Set();
+
+  return reviews.filter((review) => {
+    const dateKey = review?.date || review?._id;
+    if (seenDates.has(dateKey)) {
+      return false;
+    }
+    seenDates.add(dateKey);
+    return true;
+  });
+}
+
 function StatChip({ label, value }) {
   return (
     <div className="rounded-2xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-4 py-3 shadow-[var(--surface-shadow)] backdrop-blur-sm">
@@ -108,18 +124,38 @@ export default function StockReviewPage() {
     setLoading(true);
     setError('');
 
-    fetchStockReviews({
-      page,
-      limit: 12,
+    const baseFilters = {
       search: filters.search || undefined,
       dateFrom: filters.dateFrom || undefined,
       dateTo: filters.dateTo || undefined,
       sector: filters.sector || undefined,
-    })
+    };
+
+    const request = filters.featuredOnly
+      ? fetchAllStockReviews(baseFilters)
+      : fetchStockReviews({
+          page,
+          limit: PAGE_SIZE,
+          ...baseFilters,
+        });
+
+    request
       .then((result) => {
         if (cancelled) {
           return;
         }
+
+        if (filters.featuredOnly) {
+          const featuredReviews = pickFeaturedReviews(result.reviews || []);
+          const total = featuredReviews.length;
+          const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+          const offset = (page - 1) * PAGE_SIZE;
+
+          setReviews(featuredReviews.slice(offset, offset + PAGE_SIZE));
+          setPageInfo({ total, totalPages });
+          return;
+        }
+
         setReviews(result.reviews || []);
         setPageInfo({ total: result.total || 0, totalPages: result.totalPages || 1 });
       })
@@ -137,7 +173,7 @@ export default function StockReviewPage() {
     return () => {
       cancelled = true;
     };
-  }, [filters.dateFrom, filters.dateTo, filters.search, filters.sector, page, t]);
+  }, [filters.dateFrom, filters.dateTo, filters.featuredOnly, filters.search, filters.sector, page, t]);
 
   function handleFilterSubmit(event) {
     event.preventDefault();
@@ -147,17 +183,19 @@ export default function StockReviewPage() {
       dateFrom: filters.dateFrom,
       dateTo: filters.dateTo,
       sector: filters.sector,
+      featured: filters.featuredOnly ? null : '0',
     });
   }
 
   function handleFilterReset() {
-    setFilters({ search: '', dateFrom: '', dateTo: '', sector: '' });
+    setFilters({ search: '', dateFrom: '', dateTo: '', sector: '', featuredOnly: true });
     patchSearchParams(searchParams, setSearchParams, {
       page: null,
       search: null,
       dateFrom: null,
       dateTo: null,
       sector: null,
+      featured: null,
     });
   }
 
@@ -238,6 +276,15 @@ export default function StockReviewPage() {
               placeholder={t('stock.sectorPlaceholder')}
               className="rounded-2xl border border-[color:var(--surface-border)] bg-[var(--input-bg)] px-4 py-3 text-sm text-[color:var(--text-primary)] outline-none transition focus:border-[color:var(--accent-border)]"
             />
+            <label className="flex min-h-[3rem] items-center gap-3 rounded-2xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-4 py-3 text-sm text-[color:var(--text-primary)] lg:col-span-full">
+              <input
+                type="checkbox"
+                checked={filters.featuredOnly}
+                onChange={(event) => setFilters((current) => ({ ...current, featuredOnly: event.target.checked }))}
+                className="h-4 w-4 rounded border-[color:var(--surface-border)] text-[var(--accent-solid)] focus:ring-[color:var(--accent-border)]"
+              />
+              <span>{t('stock.featuredOnly')}</span>
+            </label>
             <div className="flex gap-3 lg:col-span-full">
               <button type="submit" className="rounded-2xl border border-transparent bg-[var(--accent-solid)] px-4 py-2.5 text-sm font-medium text-[var(--accent-solid-text)] transition hover:opacity-90">{t('stock.applyFilters')}</button>
               <button type="button" onClick={handleFilterReset} className="rounded-2xl border border-[color:var(--surface-border)] bg-[var(--surface-bg)] px-4 py-2.5 text-sm text-[color:var(--text-primary)] transition hover:bg-[var(--surface-hover)]">{t('stock.resetFilters')}</button>
