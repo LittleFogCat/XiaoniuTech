@@ -41,10 +41,19 @@
 | news | array<object> | 是 | 消息面分类数组。 |
 | focusSectors | array<object> | 是 | 明日关注板块数组。 |
 | focusStocks | array<object> | 是 | 明日关注个股分组数组。 |
+| creator | object | 是 | 创建者信息，由后端根据当前登录 token 自动写入。 |
 | title | string | 否 | 文章标题；为空时后端自动生成 `${date} 复盘`。 |
 | content | string | 否 | markdown 文章内容；为空时后端自动按模板自动生成。 |
 | createdAt | string | 否 | 创建时间。 |
 | updatedAt | string | 否 | 更新时间。 |
+
+### creator 字段
+
+| 参数名 | 参数类型 | 是否必需 | 说明 |
+| --- | --- | --- | --- |
+| id | string | 是 | 创建者用户 ID。 |
+| nickname | string | 是 | 创建者昵称。 |
+| avatar | string | 否 | 创建者头像访问地址；无头像时为空字符串。 |
 
 ### markets 字段
 
@@ -186,6 +195,11 @@
         "news": [],
         "focusSectors": [],
         "focusStocks": [],
+        "creator": {
+          "id": "6837f1c16a17d7db3772c123",
+          "nickname": "小牛",
+          "avatar": "/api/files/6837f0b96a17d7db3772c101"
+        },
         "title": "2026-05-29 复盘",
         "content": "# 今日盘面\n...",
         "createdAt": "2026-05-29T13:00:00.000Z",
@@ -246,6 +260,7 @@
 **请求体要求**
 
 - 请求体结构与“股市复盘对象字段”一致，但无需提交 `_id`、`createdAt`、`updatedAt`。
+- `creator` 由后端根据当前登录 token 自动写入，客户端无需也不能自行指定。
 - `title`、`content` 为可选字符串；留空或传空字符串时，后端会自动生成。
 - 如果 `title` 或 `content` 为空，且后端无法基于其余字段生成对应内容，则返回 `400`。
 

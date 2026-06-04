@@ -51,6 +51,10 @@ function serializeUser(doc, blacklistSet = new Set()) {
   };
 }
 
+function buildAvatarUrl(avatarFileId) {
+  return avatarFileId ? `/api/files/${avatarFileId}` : '';
+}
+
 function buildAccessPayload(userDoc, groupDocs, blacklistDoc) {
   const groupIds = [];
   const groups = [];
@@ -82,6 +86,7 @@ function buildAccessPayload(userDoc, groupDocs, blacklistDoc) {
     username: userDoc.email,
     email: userDoc.email,
     nickname: userDoc.nickname || userDoc.email,
+    avatarUrl: buildAvatarUrl(userDoc.avatarFileId),
     groupIds,
     groups,
     permissions: [...permissionSet].sort(),
@@ -199,7 +204,7 @@ export async function initializePermissionSystem() {
 
 export async function getUserAccessByEmail(email) {
   const user = await User.findOne({ email })
-    .select('email nickname groups')
+    .select('email nickname avatarFileId groups')
     .populate('groups', 'key name permissions isSystem')
     .lean();
 
@@ -217,7 +222,7 @@ export async function getUserAccessById(userId) {
   }
 
   const user = await User.findById(userId)
-    .select('email nickname groups')
+    .select('email nickname avatarFileId groups')
     .populate('groups', 'key name permissions isSystem')
     .lean();
 

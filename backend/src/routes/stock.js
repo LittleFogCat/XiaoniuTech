@@ -121,7 +121,13 @@ router.post('/reviews', async (req, res) => {
   }
 
   try {
-    const review = await createStockReview(req.body || {});
+    const review = await createStockReview(req.body || {}, {
+      creator: {
+        id: user.userId,
+        nickname: user.nickname || user.email,
+        avatar: user.avatarUrl || '',
+      },
+    });
     return sendApiResponse(res, { data: review });
   } catch (error) {
     return sendApiError(res, error, 500, '创建股市复盘失败');

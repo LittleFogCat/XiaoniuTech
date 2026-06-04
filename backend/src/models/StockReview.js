@@ -207,6 +207,27 @@ const focusStockGroupSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const reviewCreatorSchema = new mongoose.Schema(
+  {
+    id: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    nickname: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    avatar: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+  },
+  { _id: false }
+);
+
 const stockReviewSchema = new mongoose.Schema(
   {
     date: {
@@ -233,6 +254,10 @@ const stockReviewSchema = new mongoose.Schema(
     focusStocks: {
       type: [focusStockGroupSchema],
       default: [],
+    },
+    creator: {
+      type: reviewCreatorSchema,
+      required: true,
     },
     title: {
       type: String,

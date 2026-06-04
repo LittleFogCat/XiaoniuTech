@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import IdentityAvatar from '../components/IdentityAvatar';
 import ManagementPageLayout from '../components/layout/ManagementPageLayout';
 import { useAppShell } from '../contexts/AppShellContext';
 import { useAuthState } from '../contexts/AuthContext';
@@ -266,7 +267,7 @@ export default function StockReviewDetailPage() {
   const location = useLocation();
   const { reviewId } = useParams();
   const [searchParams] = useSearchParams();
-  const { t } = useAppShell();
+  const { formatDate, t } = useAppShell();
   const { hasSession, profile, profileLoaded, profileError } = useAuthState();
   const [review, setReview] = useState(null);
   const [editorDraft, setEditorDraft] = useState(createEmptyDraft());
@@ -283,6 +284,28 @@ export default function StockReviewDetailPage() {
   const returnTo = location.state?.from || '/stock/review';
   const redirectTarget = `${location.pathname}${location.search}`;
   const articleTitle = useMemo(() => review?.title || t('stock.articleTitle', { date: review?.date || '--' }), [review?.date, review?.title, t]);
+  const reviewMeta = useMemo(() => {
+    if (!review || isEditMode) {
+      return null;
+    }
+
+    const creatorName = review.creator?.nickname || t('stock.creatorUnknown');
+    const createdAtLabel = review.createdAt
+      ? formatDate(review.createdAt, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : t('stock.timeUnknown');
+
+    return {
+      creatorName,
+      creatorAvatar: review.creator?.avatar || '',
+      createdAtLabel,
+    };
+  }, [formatDate, isEditMode, review, t]);
   const seoDescription = useMemo(() => {
     if (isEditMode) {
       return t('stock.editorDescription');
@@ -629,6 +652,16 @@ export default function StockReviewDetailPage() {
               <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[color:var(--text-primary)] sm:text-4xl" style={{ fontFamily: "'Space Grotesk', 'Noto Sans SC', sans-serif" }}>
                 {isCreateMode ? t('stock.createMode') : isEditMode ? t('stock.editMode') : articleTitle}
               </h1>
+              {reviewMeta ? (
+                <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-[color:var(--text-faint)] sm:text-sm">
+                  <div className="flex items-center gap-2">
+                    <IdentityAvatar name={reviewMeta.creatorName} avatarUrl={reviewMeta.creatorAvatar} size="sm" className="h-8 w-8 rounded-full text-xs ring-[color:var(--surface-border)]" />
+                    <span className="font-medium text-[color:var(--text-secondary)]">{reviewMeta.creatorName}</span>
+                  </div>
+                  <span className="hidden h-1 w-1 rounded-full bg-[color:var(--text-faint)] sm:inline-block" aria-hidden="true" />
+                  <span>{reviewMeta.createdAtLabel}</span>
+                </div>
+              ) : null}
               <p className="mt-3 max-w-xl text-sm leading-7 text-[color:var(--text-muted)] sm:text-base">
                 {isEditMode ? t('stock.editorDescription') : t('stock.articleLead')}
               </p>

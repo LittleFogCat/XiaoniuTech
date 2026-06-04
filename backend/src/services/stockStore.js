@@ -196,6 +196,16 @@ function normalizeFocusStocks(value) {
   });
 }
 
+function normalizeCreatorMetadata(value) {
+  ensurePlainObject(value, '创建者信息缺失');
+
+  return {
+    id: normalizeTrimmedString(value.id, '创建者 ID'),
+    nickname: normalizeTrimmedString(value.nickname, '创建者昵称'),
+    avatar: normalizeOptionalString(value.avatar),
+  };
+}
+
 function normalizeReviewInput(payload, { partial = false } = {}) {
   ensurePlainObject(payload, '请求数据格式错误');
 
@@ -847,8 +857,9 @@ export async function getStockReviewById(reviewId) {
   return ensureGeneratedReviewDocument(review);
 }
 
-export async function createStockReview(payload) {
+export async function createStockReview(payload, { creator } = {}) {
   const input = normalizeReviewInput(payload);
+  input.creator = normalizeCreatorMetadata(creator);
   Object.assign(input, generateMissingReviewFields(input));
 
   try {
