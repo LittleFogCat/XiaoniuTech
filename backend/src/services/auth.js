@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 
-const DEFAULT_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const PASSWORD_SALT_BYTES = 16;
 const PASSWORD_KEYLEN = 64;
 const PASSWORD_DIGEST = 'sha512';
