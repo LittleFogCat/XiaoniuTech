@@ -237,11 +237,14 @@ const stockReviewSchema = new mongoose.Schema(
     },
     markets: {
       type: marketSchema,
-      required: true,
     },
     todayHot: {
       type: todayHotSchema,
-      required: true,
+    },
+    type: {
+      type: Number,
+      default: 2,
+      enum: [1, 2],
     },
     news: {
       type: [newsItemSchema],

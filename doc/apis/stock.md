@@ -36,13 +36,14 @@
 | --- | --- | --- | --- |
 | _id | string | 否 | MongoDB 文档 ID。 |
 | date | string | 是 | 复盘日期，格式为 `YYYY-MM-DD`。 |
-| markets | object | 是 | 市场总览对象。 |
-| todayHot | object | 是 | 今日热点对象。 |
+| type | number | 否 | 类型：`1` 早盘快报、`2` 今日复盘。创建时为空则根据当前时间自动判断（上午 → 早盘快报，下午 → 今日复盘）。 |
+| markets | object | 条件必需 | 市场总览对象。提供 `content` 后可选。 |
+| todayHot | object | 条件必需 | 今日热点对象。提供 `content` 后可选。 |
 | news | array<object> | 是 | 消息面分类数组。 |
 | focusSectors | array<object> | 是 | 明日关注板块数组。 |
 | focusStocks | array<object> | 是 | 明日关注个股分组数组。 |
 | creator | object | 是 | 创建者信息，由后端根据当前登录令牌或 API Key 自动写入。 |
-| title | string | 否 | 文章标题；为空时后端自动生成 `${date} 复盘`。 |
+| title | string | 否 | 文章标题；为空时后端根据类型自动生成：早盘快报 → `yyyy年MM月dd日（周x）早盘快报`，今日复盘 → `yyyy年MM月dd日（周x）A股复盘`。 |
 | content | string | 否 | markdown 文章内容；为空时后端自动按模板自动生成。 |
 | createdAt | string | 否 | 创建时间。 |
 | updatedAt | string | 否 | 更新时间。 |

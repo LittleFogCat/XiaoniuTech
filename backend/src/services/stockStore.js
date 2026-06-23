@@ -206,6 +206,17 @@ function normalizeCreatorMetadata(value) {
   };
 }
 
+function normalizeType(value) {
+  if (value === undefined || value === null || value === 0) {
+    return resolveReviewType();
+  }
+  const num = Number(value);
+  if (num !== 1 && num !== 2) {
+    throw createHttpError('type 字段必须为 0（自动）、1（早盘快报）或 2（今日复盘）');
+  }
+  return num;
+}
+
 function normalizeReviewInput(payload, { partial = false } = {}) {
   ensurePlainObject(payload, '请求数据格式错误');
 
@@ -214,11 +225,32 @@ function normalizeReviewInput(payload, { partial = false } = {}) {
   if (!partial || payload.date !== undefined) {
     nextValue.date = normalizeDateString(payload.date);
   }
-  if (!partial || payload.markets !== undefined) {
-    nextValue.markets = normalizeMarkets(payload.markets);
+
+  if (!partial || payload.type !== undefined) {
+    nextValue.type = normalizeType(payload.type);
   }
+
+  // Declares whether the incoming payload carries a non-empty content string.
+  // Only used by the create (!partial) branch below to decide whether the
+  // markets / todayHot requirement can be relaxed.
+  const hasContent = !partial || payload.content !== undefined
+    ? !isBlankText(payload.content)
+    : false;
+
+  if (!partial || payload.markets !== undefined) {
+    if (payload.markets !== undefined && payload.markets !== null) {
+      nextValue.markets = normalizeMarkets(payload.markets);
+    } else if (!partial && !hasContent) {
+      throw createHttpError('未提供文章内容时，市场总览不能为空');
+    }
+  }
+
   if (!partial || payload.todayHot !== undefined) {
-    nextValue.todayHot = normalizeTodayHot(payload.todayHot);
+    if (payload.todayHot !== undefined && payload.todayHot !== null) {
+      nextValue.todayHot = normalizeTodayHot(payload.todayHot);
+    } else if (!partial && !hasContent) {
+      throw createHttpError('未提供文章内容时，今日热点不能为空');
+    }
   }
   if (!partial || payload.news !== undefined) {
     nextValue.news = normalizeNewsItems(payload.news || []);
@@ -362,6 +394,14 @@ export async function ensureStockReviewIndexes() {
 
 function isBlankText(value) {
   return value == null || String(value).trim() === '';
+}
+
+function resolveReviewType(type) {
+  if (type === 1) return 1;
+  if (type === 2) return 2;
+  // Auto-detect based on current time: morning → early briefing, afternoon → daily review
+  const now = new Date();
+  return now.getHours() < 12 ? 1 : 2;
 }
 
 function isLegacyNewsItem(item) {
@@ -524,27 +564,42 @@ function normalizeLegacyReviewShape(review) {
   const normalizedNews = normalizeLegacyNews(review);
   const focusStocks = normalizeLegacyFocusStocks(review);
 
+  // Only fill fallback markets/todayHot for records that lack their own content
+  const needsFallback = isBlankText(review.content);
+
   return {
     ...review,
-    markets: review.markets || {
+    markets: review.markets || (needsFallback ? {
       summary: normalizedNews[0]?.content?.[0] || '暂无市场摘要',
       indices: [],
       volume: '暂无量能数据',
-    },
-    todayHot: review.todayHot || {
+    } : undefined),
+    todayHot: review.todayHot || (needsFallback ? {
       topSectors,
       concepts: [],
       fallingSectors: [],
       summary: buildLegacyHotSummary(review, topSectors, focusSectors),
-    },
+    } : undefined),
     news: normalizedNews,
     focusSectors,
     focusStocks,
   };
 }
 
-function buildReviewTitle(date) {
-  return `${normalizeDateString(date)} 复盘`;
+function buildReviewTitle(date, type) {
+  const d = normalizeDateString(date);
+  const parsed = new Date(`${d}T00:00:00.000Z`);
+  const weekday = getWeekdayLabel(d);
+  const y = parsed.getUTCFullYear();
+  const m = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getUTCDate()).padStart(2, '0');
+  const dateStr = `${y}年${m}月${day}日（${weekday}）`;
+
+  const effectiveType = type == null ? 2 : resolveReviewType(type);
+  if (effectiveType === 1) {
+    return `${dateStr}早盘快报`;
+  }
+  return `${dateStr}A股复盘`;
 }
 
 function getWeekdayLabel(date) {
@@ -758,9 +813,9 @@ function generateMissingReviewFields(review) {
   const generated = {};
 
   if (isBlankText(normalizedReview.title)) {
-    generated.title = buildReviewTitle(normalizedReview.date);
+    generated.title = buildReviewTitle(normalizedReview.date, normalizedReview.type);
   }
-  if (isBlankText(normalizedReview.content)) {
+  if (isBlankText(normalizedReview.content) && normalizedReview.markets && normalizedReview.todayHot) {
     generated.content = buildReviewContent(normalizedReview);
   }
 
@@ -776,16 +831,28 @@ async function ensureGeneratedReviewDocument(review) {
   };
 
   if (!current.markets && normalized.markets) {
-    updates.markets = normalized.markets;
+    // Only auto-fill markets for legacy docs that have no content
+    if (isBlankText(current.content)) {
+      updates.markets = normalized.markets;
+    }
   }
   if (!current.todayHot && normalized.todayHot) {
-    updates.todayHot = normalized.todayHot;
+    if (isBlankText(current.content)) {
+      updates.todayHot = normalized.todayHot;
+    }
   }
   if (Array.isArray(current.news) && current.news.some((item) => isLegacyNewsItem(item))) {
     updates.news = normalized.news;
   }
   if (isLegacyFlatFocusStocks(current.focusStocks) || hasMalformedFocusStockGroups(current.focusStocks)) {
     updates.focusStocks = normalized.focusStocks;
+  }
+
+  if (current.type == null) {
+    // Existing docs created before the 'type' field was introduced default to
+    // type 2 (A-share daily review).  Writing this back keeps the query filter
+    // working and avoids title being re-calculated on every subsequent read.
+    updates.type = 2;
   }
 
   if (Object.keys(updates).length === 0) {
@@ -860,6 +927,12 @@ export async function getStockReviewById(reviewId) {
 export async function createStockReview(payload, { creator } = {}) {
   const input = normalizeReviewInput(payload);
   input.creator = normalizeCreatorMetadata(creator);
+
+  if (isBlankText(input.content) && (!input.markets || !input.todayHot)) {
+    if (!input.markets) throw createHttpError('未提供文章内容时，市场总览不能为空');
+    if (!input.todayHot) throw createHttpError('未提供文章内容时，今日热点不能为空');
+  }
+
   Object.assign(input, generateMissingReviewFields(input));
 
   try {
