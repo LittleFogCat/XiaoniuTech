@@ -69,6 +69,11 @@ export function AuthProvider({ children }) {
         setProfile(null);
         setProfileError(error.message || 'Failed to fetch profile');
         setProfileLoaded(true);
+
+        if (error.status === 401 || error.status === 403) {
+          clearAuthSession();
+          setSessionState({ authMode: DEFAULT_AUTH_MODE, hasSession: false, isGuestMode: false, isLoggedIn: false, username: '' });
+        }
       });
 
     return () => {
