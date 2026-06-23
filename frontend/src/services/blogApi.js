@@ -43,6 +43,29 @@ export async function updateUserProfile(data) {
   return result.user;
 }
 
+export async function fetchUserApiKeyState() {
+  const result = await requestJson('/api/user/api-key', {
+    fallbackMessage: 'Failed to fetch API key state',
+  });
+  return result.apiKey;
+}
+
+export async function createUserApiKey() {
+  const result = await requestJson('/api/user/api-key', {
+    method: 'POST',
+    fallbackMessage: 'Failed to create API key',
+  });
+  return result.apiKey;
+}
+
+export async function deleteUserApiKey() {
+  const result = await requestJson('/api/user/api-key', {
+    method: 'DELETE',
+    fallbackMessage: 'Failed to delete API key',
+  });
+  return result.apiKey;
+}
+
 export async function fetchPosts({ page = 1, limit = 20, search, tag } = {}) {
   const params = new URLSearchParams({ page, limit });
   if (search) params.set('search', search);

@@ -1,8 +1,11 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import {
+  buildApiKeyPreview,
   createAuthToken,
   generateEmailVerificationCode,
+  generateApiKey,
+  hashApiKey,
   hashPassword,
   verifyPassword,
 } from '../services/auth.js';
@@ -233,10 +236,19 @@ function buildAvatarUrl(avatarFileId) {
   return avatarFileId ? `/api/files/${avatarFileId}` : '';
 }
 
+function buildApiKeyState(user) {
+  return {
+    hasApiKey: Boolean(user?.apiKeyHash),
+    apiKeyPreview: user?.apiKeyPrefix || '',
+    apiKeyCreatedAt: user?.apiKeyCreatedAt || null,
+    expiresAt: null,
+  };
+}
+
 router.get('/user/profile', requireAuth, async (req, res) => {
   try {
     const user = await User.findOne({ email: req.user.username })
-      .select('email nickname avatarFileId bio createdAt')
+      .select('email nickname avatarFileId bio createdAt apiKeyHash apiKeyPrefix apiKeyCreatedAt')
       .lean();
 
     if (!user) {
@@ -251,6 +263,7 @@ router.get('/user/profile', requireAuth, async (req, res) => {
         avatarFileId: user.avatarFileId,
         bio: user.bio,
         createdAt: user.createdAt,
+        ...buildApiKeyState(user),
         groups: req.user.groups,
         permissions: req.user.permissions,
       },
@@ -334,6 +347,7 @@ router.put('/user/profile', requireAuth, async (req, res) => {
         avatarFileId: user.avatarFileId,
         bio: user.bio,
         createdAt: user.createdAt,
+        ...buildApiKeyState(user),
         groups: req.user.groups,
         permissions: req.user.permissions,
       },
@@ -343,6 +357,68 @@ router.put('/user/profile', requireAuth, async (req, res) => {
       return res.status(409).json({ error: '操作冲突' });
     }
     res.status(500).json({ error: error.message || '更新用户信息失败' });
+  }
+});
+
+router.get('/user/api-key', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.user.username })
+      .select('apiKeyHash apiKeyPrefix apiKeyCreatedAt')
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+
+    return res.json({
+      apiKey: buildApiKeyState(user),
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || '获取 API Key 状态失败' });
+  }
+});
+
+router.post('/user/api-key', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.user.username });
+    if (!user) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+
+    const apiKey = generateApiKey();
+    user.apiKeyHash = hashApiKey(apiKey);
+    user.apiKeyPrefix = buildApiKeyPreview(apiKey);
+    user.apiKeyCreatedAt = new Date();
+    await user.save();
+
+    return res.json({
+      apiKey: {
+        ...buildApiKeyState(user),
+        value: apiKey,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || '生成 API Key 失败' });
+  }
+});
+
+router.delete('/user/api-key', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.user.username });
+    if (!user) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+
+    user.apiKeyHash = null;
+    user.apiKeyPrefix = '';
+    user.apiKeyCreatedAt = null;
+    await user.save();
+
+    return res.json({
+      apiKey: buildApiKeyState(user),
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || '废弃 API Key 失败' });
   }
 });
 

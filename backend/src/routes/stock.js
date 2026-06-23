@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { resolveUserFromRequest } from '../middleware/auth.js';
+import { resolveUserFromApiKey, resolveUserFromRequest } from '../middleware/auth.js';
 import { hasPermission } from '../services/permissionStore.js';
 import {
   createStockReview,
@@ -24,9 +24,9 @@ function sendApiError(res, error, fallbackCode = 500, fallbackMessage = '请求�
   });
 }
 
-async function ensurePermission(req, res, permission) {
+async function ensurePermission(req, res, permission, { allowApiKey = false } = {}) {
   try {
-    const user = await resolveUserFromRequest(req);
+    const user = await resolveUserFromRequest(req) || (allowApiKey ? await resolveUserFromApiKey(req) : null);
     if (!user) {
       sendApiResponse(res, {
         code: 401,
@@ -115,7 +115,7 @@ router.get('/reviews/:id', async (req, res) => {
 });
 
 router.post('/reviews', async (req, res) => {
-  const user = await ensurePermission(req, res, 'stock:review:create');
+  const user = await ensurePermission(req, res, 'stock:review:create', { allowApiKey: true });
   if (!user) {
     return;
   }

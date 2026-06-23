@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import User from '../models/User.js';
 import UserGroup from '../models/UserGroup.js';
 import Blacklist from '../models/Blacklist.js';
+import { hashApiKey } from './auth.js';
 import { ALL_PERMISSIONS, PERMISSION_GROUPS, SYSTEM_GROUP_DEFINITIONS } from './permissionConstants.js';
 
 function uniqStrings(values = []) {
@@ -222,6 +223,21 @@ export async function getUserAccessById(userId) {
   }
 
   const user = await User.findById(userId)
+    .select('email nickname avatarFileId groups')
+    .populate('groups', 'key name permissions isSystem')
+    .lean();
+
+  if (!user) {
+    return null;
+  }
+
+  const blacklist = await Blacklist.findOne({ userId: user._id }).select('_id blockReason createdAt').lean();
+  return buildAccessPayload(user, user.groups || [], blacklist);
+}
+
+export async function getUserAccessByApiKey(apiKey) {
+  const apiKeyHash = hashApiKey(apiKey);
+  const user = await User.findOne({ apiKeyHash })
     .select('email nickname avatarFileId groups')
     .populate('groups', 'key name permissions isSystem')
     .lean();

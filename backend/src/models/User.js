@@ -33,6 +33,20 @@ const UserSchema = new mongoose.Schema(
       default: '',
       maxlength: 200,
     },
+    apiKeyHash: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    apiKeyPrefix: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    apiKeyCreatedAt: {
+      type: Date,
+      default: null,
+    },
     groups: {
       type: [{
         type: mongoose.Schema.Types.ObjectId,

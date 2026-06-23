@@ -5,6 +5,7 @@ const PASSWORD_SALT_BYTES = 16;
 const PASSWORD_KEYLEN = 64;
 const PASSWORD_DIGEST = 'sha512';
 const EMAIL_CODE_LENGTH = 6;
+const API_KEY_PREFIX = 'xntk_';
 
 function getAuthSecret() {
   const secret = process.env.CHAT_AUTH_SECRET;
@@ -126,4 +127,57 @@ export function generateEmailVerificationCode() {
   const max = 10 ** EMAIL_CODE_LENGTH;
   const value = crypto.randomInt(0, max);
   return String(value).padStart(EMAIL_CODE_LENGTH, '0');
+}
+
+export function generateApiKey() {
+  return `${API_KEY_PREFIX}${crypto.randomBytes(24).toString('base64url')}`;
+}
+
+export function hashApiKey(apiKey) {
+  return crypto
+    .createHash('sha256')
+    .update(String(apiKey || ''))
+    .digest('hex');
+}
+
+export function verifyApiKey(apiKey, apiKeyHash) {
+  if (!apiKey || !apiKeyHash || typeof apiKeyHash !== 'string') {
+    return false;
+  }
+
+  const providedBuffer = Buffer.from(hashApiKey(apiKey), 'hex');
+  const expectedBuffer = Buffer.from(apiKeyHash, 'hex');
+
+  if (providedBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(providedBuffer, expectedBuffer);
+}
+
+export function readApiKey(req) {
+  const headerApiKey = String(req.headers['x-api-key'] || '').trim();
+  if (headerApiKey) {
+    return headerApiKey;
+  }
+
+  const bearerToken = readBearerToken(req);
+  if (bearerToken && bearerToken.startsWith(API_KEY_PREFIX)) {
+    return bearerToken;
+  }
+
+  return null;
+}
+
+export function buildApiKeyPreview(apiKey) {
+  const normalized = String(apiKey || '').trim();
+  if (!normalized) {
+    return '';
+  }
+
+  if (normalized.length <= 12) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, 8)}...${normalized.slice(-4)}`;
 }

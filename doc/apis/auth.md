@@ -264,6 +264,9 @@
     "avatarFileId": "68207a7105d9d5a1bc3aa7a5",
     "bio": "个人简介",
     "createdAt": "2026-01-01T00:00:00.000Z",
+    "hasApiKey": true,
+    "apiKeyPreview": "xntk_r4Ld...Z8pQ",
+    "apiKeyCreatedAt": "2026-06-16T08:00:00.000Z",
     "groups": [
       {
         "id": "681f7f0ab2a2e8d7d4f69301",
@@ -292,6 +295,9 @@
 | user.avatarFileId | string\|null | 是 | 头像文件 ID，没有头像时为 `null`。 |
 | user.bio | string | 是 | 个人简介，最多 200 字。 |
 | user.createdAt | string | 是 | 账号创建时间，ISO 字符串。 |
+| user.hasApiKey | boolean | 是 | 当前是否已生成个人 API Key。 |
+| user.apiKeyPreview | string | 是 | API Key 脱敏预览，仅用于识别当前生效的 Key。 |
+| user.apiKeyCreatedAt | string\|null | 是 | API Key 生成时间，未生成时为 `null`。 |
 | user.groups | array<object> | 是 | 当前所属用户组数组，每项包含 `id`、`key`、`name`、`isSystem`。 |
 | user.permissions | array<string> | 是 | 当前账号拥有的权限列表。 |
 
@@ -350,6 +356,9 @@
     "avatarFileId": "68207a7105d9d5a1bc3aa7a5",
     "bio": "全栈开发者",
     "createdAt": "2026-01-01T00:00:00.000Z",
+    "hasApiKey": true,
+    "apiKeyPreview": "xntk_r4Ld...Z8pQ",
+    "apiKeyCreatedAt": "2026-06-16T08:00:00.000Z",
     "groups": [
       {
         "id": "681f7f0ab2a2e8d7d4f69301",
@@ -382,3 +391,103 @@
 - 修改密码时必须同时提供 `currentPassword` 和 `newPassword`，否则会校验失败。
 - 系统保留昵称为 `post`、`new`、`edit`、`manage`，不能使用。
 - 可能返回的错误状态码：`400`（昵称不合法、头像文件无效、当前密码错误、新密码不合法）、`401`、`403`、`404`、`409`（昵称已被使用或写入冲突）。
+
+### 获取当前用户 API Key 状态
+
+**接口描述**
+
+获取当前登录用户的 API Key 状态。出于安全考虑，该接口不会返回完整 Key，只返回是否存在、脱敏预览和生成时间。
+
+**请求路径**
+
+`GET /api/user/api-key`
+
+**返回示例**
+
+```json
+{
+  "apiKey": {
+    "hasApiKey": true,
+    "apiKeyPreview": "xntk_r4Ld...Z8pQ",
+    "apiKeyCreatedAt": "2026-06-16T08:00:00.000Z",
+    "expiresAt": null
+  }
+}
+```
+
+**返回参数**
+
+| 参数名 | 参数类型 | 是否必需 | 参数说明及示例值 |
+| --- | --- | --- | --- |
+| apiKey | object | 是 | 当前用户 API Key 状态对象。 |
+| apiKey.hasApiKey | boolean | 是 | 是否已生成 API Key。 |
+| apiKey.apiKeyPreview | string | 是 | API Key 的脱敏预览。 |
+| apiKey.apiKeyCreatedAt | string\|null | 是 | API Key 生成时间，未生成时为 `null`。 |
+| apiKey.expiresAt | null | 是 | 到期时间。当前固定为 `null`，表示不过期。 |
+
+**所需权限**
+
+需要登录。
+
+### 生成或重置当前用户 API Key
+
+**接口描述**
+
+生成新的个人 API Key。若用户已有 API Key，则本接口会直接重置，旧 Key 立即失效。完整 Key 只会在本接口响应中返回一次。
+
+**请求路径**
+
+`POST /api/user/api-key`
+
+**返回示例**
+
+```json
+{
+  "apiKey": {
+    "hasApiKey": true,
+    "apiKeyPreview": "xntk_r4Ld...Z8pQ",
+    "apiKeyCreatedAt": "2026-06-16T08:00:00.000Z",
+    "expiresAt": null,
+    "value": "xntk_r4LdQwY6DqQwIYj9mTjE3pS2e8dFZ8pQ"
+  }
+}
+```
+
+**返回参数**
+
+除“获取当前用户 API Key 状态”中的字段外，还额外返回：
+
+| 参数名 | 参数类型 | 是否必需 | 参数说明及示例值 |
+| --- | --- | --- | --- |
+| apiKey.value | string | 是 | 本次新生成的完整 API Key，仅在本次响应中返回。 |
+
+**所需权限**
+
+需要登录。
+
+### 废弃当前用户 API Key
+
+**接口描述**
+
+废弃当前用户的 API Key。废弃后旧 Key 立即失效。
+
+**请求路径**
+
+`DELETE /api/user/api-key`
+
+**返回示例**
+
+```json
+{
+  "apiKey": {
+    "hasApiKey": false,
+    "apiKeyPreview": "",
+    "apiKeyCreatedAt": null,
+    "expiresAt": null
+  }
+}
+```
+
+**所需权限**
+
+需要登录。

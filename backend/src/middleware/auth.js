@@ -1,5 +1,5 @@
-import { readBearerToken, verifyAuthToken } from '../services/auth.js';
-import { getUserAccessByEmail, hasPermission } from '../services/permissionStore.js';
+import { readApiKey, readBearerToken, verifyAuthToken } from '../services/auth.js';
+import { getUserAccessByApiKey, getUserAccessByEmail, hasPermission } from '../services/permissionStore.js';
 
 async function resolveUserFromRequest(req) {
   if (req.user?.username) {
@@ -9,17 +9,17 @@ async function resolveUserFromRequest(req) {
   const token = readBearerToken(req);
   const payload = verifyAuthToken(token);
 
-  if (!payload?.username) {
-    return null;
+  if (payload?.username) {
+    const access = await getUserAccessByEmail(payload.username);
+    if (!access) {
+      return null;
+    }
+
+    req.user = access;
+    return access;
   }
 
-  const access = await getUserAccessByEmail(payload.username);
-  if (!access) {
-    return null;
-  }
-
-  req.user = access;
-  return access;
+  return null;
 }
 
 export { resolveUserFromRequest };
@@ -57,4 +57,19 @@ export function requirePermission(permission) {
       return res.status(error?.statusCode || 500).json({ error: error.message || '权限校验失败' });
     }
   };
+}
+
+export async function resolveUserFromApiKey(req) {
+  const apiKey = readApiKey(req);
+  if (!apiKey) {
+    return null;
+  }
+
+  const access = await getUserAccessByApiKey(apiKey);
+  if (!access) {
+    return null;
+  }
+
+  req.user = access;
+  return access;
 }

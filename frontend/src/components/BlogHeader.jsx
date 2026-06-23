@@ -312,6 +312,21 @@ export default function BlogHeader({ onSearch, hideBackButton = false, contentWi
                       </button>
                     )}
                     <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        navigate('/api-key');
+                      }}
+                      className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="8.5" cy="15.5" r="2.5" />
+                        <path d="M10.5 13.5 20 4" />
+                        <path d="M17 4h3v3" />
+                        <path d="M13.5 17.5 20 11" />
+                      </svg>
+                      {t('apiKey.menuLabel')}
+                    </button>
+                    <button
                       onClick={() => { setMenuOpen(false); navigate('/settings'); }}
                       className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-[color:var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
                     >

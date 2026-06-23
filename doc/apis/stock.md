@@ -41,7 +41,7 @@
 | news | array<object> | 是 | 消息面分类数组。 |
 | focusSectors | array<object> | 是 | 明日关注板块数组。 |
 | focusStocks | array<object> | 是 | 明日关注个股分组数组。 |
-| creator | object | 是 | 创建者信息，由后端根据当前登录 token 自动写入。 |
+| creator | object | 是 | 创建者信息，由后端根据当前登录令牌或 API Key 自动写入。 |
 | title | string | 否 | 文章标题；为空时后端自动生成 `${date} 复盘`。 |
 | content | string | 否 | markdown 文章内容；为空时后端自动按模板自动生成。 |
 | createdAt | string | 否 | 创建时间。 |
@@ -260,7 +260,7 @@
 **请求体要求**
 
 - 请求体结构与“股市复盘对象字段”一致，但无需提交 `_id`、`createdAt`、`updatedAt`。
-- `creator` 由后端根据当前登录 token 自动写入，客户端无需也不能自行指定。
+- `creator` 由后端根据当前登录令牌或 API Key 自动写入，客户端无需也不能自行指定。
 - `title`、`content` 为可选字符串；留空或传空字符串时，后端会自动生成。
 - 如果 `title` 或 `content` 为空，且后端无法基于其余字段生成对应内容，则返回 `400`。
 
@@ -270,6 +270,10 @@
 
 **其他说明**
 
+- 该接口支持两种认证方式：
+  - 常规登录令牌：`Authorization: Bearer <token>`
+  - 个人 API Key：`X-API-Key: <apiKey>`，也兼容 `Authorization: Bearer <apiKey>`
+- 个人 API Key 无过期时间；若用户重新生成或废弃 API Key，旧 Key 会立即失效。
 可能返回的错误 `code`：`400`（请求字段格式错误或自动生成失败）、`500`（保存失败，例如数据库索引状态异常）。
 
 ### 更新股市复盘
