@@ -134,6 +134,13 @@ export default function HomePage() {
       type: 'internal',
       tag: t('home.featureTagSandbox'),
     },
+    {
+      title: t('home.featureStockTitle'),
+      description: t('home.featureStockDesc'),
+      to: '/stock/review',
+      type: 'internal',
+      tag: t('home.featureTagMarkets'),
+    },
   ];
 
   const statusRows = [
