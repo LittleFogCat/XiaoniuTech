@@ -809,7 +809,7 @@ export default function StockReviewDetailPage() {
           <section className="rounded-[24px] border border-[color:var(--surface-border)] bg-[var(--surface-bg)] p-6 shadow-[var(--surface-shadow)] backdrop-blur-sm">
             <div className="mb-6 flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.22em] text-[color:var(--accent-solid)]">
               <span>{review.date}</span>
-              <span>{t('stock.detailTitle')}</span>
+              <span>{review.type === 1 ? t('stock.detailTitleEarly') : t('stock.detailTitle')}</span>
             </div>
             <article className="md-content">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{processMarkdown(review.content || '')}</ReactMarkdown>
