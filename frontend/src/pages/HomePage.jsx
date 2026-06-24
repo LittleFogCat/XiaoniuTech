@@ -23,7 +23,6 @@ export default function HomePage() {
   const { t, theme } = useAppShell();
   const siteOrigin = typeof window === 'undefined' ? '' : window.location.origin;
   const [isWechatOpen, setIsWechatOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
   const [hasAccountSession, setHasAccountSession] = useState(() => hasAuthenticatedSession());
   const [orbitBursts, setOrbitBursts] = useState([]);
   const [orbitComets, setOrbitComets] = useState([]);
@@ -48,13 +47,6 @@ export default function HomePage() {
         }
       : null,
   });
-
-  useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 18);
-    handleScroll();
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   useEffect(() => {
     const syncSession = () => setHasAccountSession(hasAuthenticatedSession());
@@ -244,7 +236,7 @@ export default function HomePage() {
       <div className="home-page-ambient home-page-ambient-b" />
       <div className="home-page-grid" />
 
-      <header className={`home-page-header${isScrolled ? ' is-scrolled' : ''}`}>
+      <header className="home-page-header">
         <div className="home-page-header-inner">
           <Link className="home-logo" to="/">
             {t('home.navTitle')}

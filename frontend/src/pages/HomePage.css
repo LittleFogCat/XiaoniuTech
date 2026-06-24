@@ -31,22 +31,6 @@
   background: transparent;
   box-shadow: none;
   backdrop-filter: none;
-  transition: none;
-}
-
-.home-page-header:not(.is-scrolled) .home-page-header-inner {
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-}
-
-.home-page-header.is-scrolled .home-page-header-inner {
-  transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, backdrop-filter 180ms ease;
-  border: 1px solid var(--surface-border);
-  background: var(--surface-bg-strong);
-  box-shadow: var(--surface-shadow);
-  backdrop-filter: blur(18px);
 }
 
 .home-logo {
@@ -644,13 +628,6 @@
     background: transparent;
     box-shadow: none;
     backdrop-filter: none;
-  }
-
-  .home-page-header.is-scrolled .home-page-header-inner {
-    border-color: var(--surface-border);
-    background: var(--surface-bg-strong);
-    box-shadow: var(--surface-shadow);
-    backdrop-filter: blur(18px);
   }
 
   .home-header-actions {
