@@ -11,6 +11,6 @@ applyTo:
 
 # Chat Streaming Contract
 
-- Treat [apis/chat.md](../../apis/chat.md) as the public contract. If the request shape or streamed payload changes, update the doc in the same task.
-- Repository-level SSE framing, parser alignment and Nginx buffering rules are centralized in [doc/convention.md](../../doc/convention.md). This file keeps the module-scoped change set together.
+- Treat [doc/apis/chat.md](../../doc/apis/chat.md) as the public contract. If the request shape or streamed payload changes, update the doc in the same task.
+- Repository-level SSE framing, parser alignment and Nginx buffering rules are centralized in [doc/convention/README.md](../../doc/convention/README.md). This file keeps the module-scoped change set together.
 - [frontend/src/services/api.js](../../frontend/src/services/api.js) currently parses one JSON object per `data:` line and yields `obj.content`. Change the backend emitter and frontend parser together.

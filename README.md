@@ -39,7 +39,7 @@ script\build.bat          # Windows
 sh install.sh
 ```
 
-详见 [doc/部署说明.md](doc/部署说明.md)。
+详见 [doc/ops/README.md](doc/ops/README.md)。
 
 ## 环境变量
 
@@ -67,5 +67,5 @@ sh install.sh
 ## 文档
 
 - [API 文档](doc/apis/)
-- [部署说明](doc/部署说明.md)
+- [部署说明](doc/ops/README.md)
 - [目录结构说明](doc/目录结构说明.md)
