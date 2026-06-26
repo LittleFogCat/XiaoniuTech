@@ -4,6 +4,7 @@ import cors from 'cors';
 import seoRouter from './routes/seo.js';
 import blogRouter from './routes/blog.js';
 import authRouter from './routes/auth.js';
+import authV2Router from './routes/authV2.js';
 import chatRouter from './routes/chat.js';
 import chatManageRouter from './routes/chatManage.js';
 import permissionRouter from './routes/permission.js';
@@ -38,6 +39,7 @@ app.use(async (req, res, next) => {
 });
 
 app.use('/api', authRouter);
+app.use('/api', authV2Router);
 app.use('/api', chatRouter);
 app.use('/api', chatManageRouter);
 app.use('/api/blog', blogRouter);

@@ -30,6 +30,8 @@ function signPayload(encodedPayload) {
     .digest('base64url');
 }
 
+export { getAuthSecret, base64urlEncode, base64urlDecode, signPayload };
+
 export function createAuthToken(username) {
   const expiresInMs = Number(process.env.CHAT_AUTH_TOKEN_TTL_MS || DEFAULT_TOKEN_TTL_MS);
   const payload = {
