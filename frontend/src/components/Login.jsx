@@ -110,10 +110,9 @@ export default function Login({ onLogin, onBack, initialMode = 'login' }) {
     }
   };
 
-  const persistAuthenticatedUser = ({ user, token, fallbackIdentity }) => {
+  const persistAuthenticatedUser = ({ user, fallbackIdentity }) => {
     setStoredLoggedIn(true);
     setAuthMode('user');
-    setAuthToken(token);
     localStorage.setItem(LOGIN_IDENTITY_KEY, user?.email || user?.username || fallbackIdentity);
     emitAuthChange();
     onLogin('user');
@@ -145,8 +144,8 @@ export default function Login({ onLogin, onBack, initialMode = 'login' }) {
     setIsLoading(true);
 
     try {
-      const { user, token } = await login(email, password);
-      persistAuthenticatedUser({ user, token, fallbackIdentity: email });
+      const { user } = await login(email, password);
+      persistAuthenticatedUser({ user, fallbackIdentity: email });
     } catch (err) {
       setError(err instanceof Error ? err.message : t('login.loginFailed'));
     } finally {
@@ -194,7 +193,13 @@ export default function Login({ onLogin, onBack, initialMode = 'login' }) {
 
     try {
       const { user, token } = await verifyRegistration(email, verificationCode);
-      persistAuthenticatedUser({ user, token, fallbackIdentity: email });
+      // Registration still returns a v1 token. Store under auth_token so the
+      // user can access protected routes immediately; they will get v2 tokens
+      // on their next explicit login.
+      if (token) {
+        setAuthToken(token);
+      }
+      persistAuthenticatedUser({ user, fallbackIdentity: email });
     } catch (err) {
       setError(err instanceof Error ? err.message : t('login.verifyFailed'));
     } finally {

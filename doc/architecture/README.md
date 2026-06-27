@@ -126,4 +126,4 @@
 - 通用开发约束见 [开发规约](../convention/README.md)。
 - API 文档入口见 [doc/apis/README.md](../../doc/apis/README.md)。
 - UI 规范入口见 [doc/ui/README.md](../../doc/ui/README.md)。
-- 部署说明见 [doc/convention/deployment.md](../../doc/convention/deployment.md)。
+- 部署说明见 [doc/ops/README.md](../ops/README.md)。

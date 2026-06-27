@@ -1,6 +1,13 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { clearAuthSession, emitAuthChange, getAuthMode, isStoredLoggedIn } from '../services/authStorage';
-import { AUTH_CHANGE_EVENT, fetchUserProfile, getUsernameFromToken, isLoggedIn } from '../services/blogApi';
+import {
+  clearAuthSessionV2,
+  emitAuthChange,
+  getAuthMode,
+  isStoredLoggedIn,
+  migrateLegacyV1Token,
+  setCachedUsername,
+} from '../services/authStorage';
+import { AUTH_CHANGE_EVENT, fetchUserProfile, getUsernameFromToken, isLoggedIn, logout as blogLogout } from '../services/blogApi';
 
 const AuthContext = createContext(null);
 const DEFAULT_AUTH_MODE = 'user';
@@ -19,6 +26,14 @@ function readSessionState() {
     username: hasSession ? getUsernameFromToken() : '',
   };
 }
+
+const EMPTY_SESSION = {
+  authMode: DEFAULT_AUTH_MODE,
+  hasSession: false,
+  isGuestMode: false,
+  isLoggedIn: false,
+  username: '',
+};
 
 export function AuthProvider({ children }) {
   const [sessionState, setSessionState] = useState(() => readSessionState());
@@ -42,6 +57,20 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  // One-shot legacy v1 token migration: if a v1 token is present without a
+  // v2 session, try to validate it against /api/user/profile and cache the
+  // username so the rest of the app keeps working. The v1 token is always
+  // discarded afterwards (success or failure) — the next login will mint
+  // a v2 session.
+  useEffect(() => {
+    migrateLegacyV1Token({ fetchProfile: fetchUserProfile }).finally(() => {
+      // After migration attempt, refresh session state so the UI reflects
+      // the cleared/cached storage.
+      setSessionState(readSessionState());
+      emitAuthChange();
+    });
+  }, []);
+
   useEffect(() => {
     if (!sessionState.hasSession) {
       setProfile(null);
@@ -61,6 +90,11 @@ export function AuthProvider({ children }) {
         }
         setProfile(user);
         setProfileLoaded(true);
+        // Keep the cached username fresh so subsequent renders don't need
+        // to re-fetch the profile just to display it.
+        if (user?.email) {
+          setCachedUsername(user.email);
+        }
       })
       .catch((error) => {
         if (cancelled) {
@@ -71,8 +105,11 @@ export function AuthProvider({ children }) {
         setProfileLoaded(true);
 
         if (error.status === 401 || error.status === 403) {
-          clearAuthSession();
-          setSessionState({ authMode: DEFAULT_AUTH_MODE, hasSession: false, isGuestMode: false, isLoggedIn: false, username: '' });
+          // httpClient already attempted a silent refresh; if we still got
+          // 401/403 the refresh token is dead. Wipe v2 session and reset.
+          clearAuthSessionV2();
+          setSessionState(EMPTY_SESSION);
+          emitAuthChange();
         }
       });
 
@@ -85,9 +122,9 @@ export function AuthProvider({ children }) {
     setProfileVersion((current) => current + 1);
   }
 
-  function logout() {
-    clearAuthSession();
-    emitAuthChange();
+  async function logout() {
+    // blogLogout wraps logoutV2 (best-effort server revoke) + local clear.
+    await blogLogout();
   }
 
   return (

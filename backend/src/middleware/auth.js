@@ -1,5 +1,6 @@
 import { readApiKey, readBearerToken, verifyAuthToken } from '../services/auth.js';
-import { getUserAccessByApiKey, getUserAccessByEmail, hasPermission } from '../services/permissionStore.js';
+import { verifyAccessToken } from '../services/authV2.js';
+import { getUserAccessByApiKey, getUserAccessByEmail, getUserAccessById, hasPermission } from '../services/permissionStore.js';
 
 async function resolveUserFromRequest(req) {
   if (req.user?.username) {
@@ -7,16 +8,29 @@ async function resolveUserFromRequest(req) {
   }
 
   const token = readBearerToken(req);
-  const payload = verifyAuthToken(token);
+  if (!token) {
+    return null;
+  }
 
-  if (payload?.username) {
-    const access = await getUserAccessByEmail(payload.username);
-    if (!access) {
-      return null;
+  // Try v1 token first (payload uses { username, exp }).
+  const v1Payload = verifyAuthToken(token);
+  if (v1Payload?.username) {
+    const access = await getUserAccessByEmail(v1Payload.username);
+    if (access) {
+      req.user = access;
+      return access;
     }
+  }
 
-    req.user = access;
-    return access;
+  // Fallback to v2 token (payload uses { sub: userId, exp }).
+  const v2Result = verifyAccessToken(token);
+  if (v2Result.ok) {
+    const access = await getUserAccessById(v2Result.payload.sub);
+    if (access) {
+      // Normalize so downstream code (which checks req.user.username) keeps working.
+      req.user = access;
+      return access;
+    }
   }
 
   return null;

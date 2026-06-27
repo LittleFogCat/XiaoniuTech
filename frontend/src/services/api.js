@@ -1,20 +1,96 @@
 import { fetchWithAuth, requestJson, throwRequestError } from './httpClient';
+import {
+  getAccessToken,
+  getDeviceId,
+  getRefreshToken,
+  setAccessToken,
+  setAuthMode,
+  setCachedUsername,
+  setRefreshToken,
+  setStoredLoggedIn,
+} from './authStorage';
+import { scheduleTokenRefresh } from './authV2Timer.js';
 
 const API_BASE = '/api';
 
-export async function login(username, password) {
-  const data = await requestJson(`${API_BASE}/login`, {
+export async function login(email, password) {
+  const deviceId = getDeviceId();
+  const data = await requestJson(`${API_BASE}/login-v2`, {
     method: 'POST',
     auth: false,
     fallbackMessage: 'Login failed',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: username, password }),
+    body: JSON.stringify({
+      email,
+      password,
+      deviceId,
+      deviceName: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 100) : undefined,
+    }),
   });
 
+  setAccessToken(data.accessToken);
+  setRefreshToken(data.refreshToken);
+  setStoredLoggedIn(true);
+  setAuthMode('user');
+  if (data.user) {
+    setCachedUsername(data.user.email || data.user.username || '');
+  }
+  if (data.expiresIn) {
+    scheduleTokenRefresh(data.expiresIn);
+  }
   return {
-    token: data.token,
+    accessToken: data.accessToken,
+    refreshToken: data.refreshToken,
+    expiresIn: data.expiresIn,
     user: data.user,
   };
+}
+
+export async function refreshAccessToken() {
+  const refreshToken = getRefreshToken();
+  const deviceId = getDeviceId();
+  if (!refreshToken) {
+    throw new Error('No refresh token available');
+  }
+  const data = await requestJson(`${API_BASE}/refresh`, {
+    method: 'POST',
+    auth: false,
+    fallbackMessage: 'Token refresh failed',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken, deviceId }),
+  });
+  setAccessToken(data.accessToken);
+  setRefreshToken(data.refreshToken);
+  if (data.user) {
+    setCachedUsername(data.user.email || data.user.username || '');
+  }
+  if (data.expiresIn) {
+    scheduleTokenRefresh(data.expiresIn);
+  }
+  return data;
+}
+
+export async function logoutV2() {
+  // Pure server-side revoke. Local cleanup is the caller's responsibility so
+  // that a top-level logout helper (blogApi.logout) can coordinate everything
+  // (clear v2 storage, cancel timer, emit auth change) in one place. If you
+  // call logoutV2() directly, remember to clearAuthSessionV2() yourself.
+  const accessToken = getAccessToken();
+  const refreshToken = getRefreshToken();
+  if (!accessToken || !refreshToken) {
+    return { success: true };
+  }
+  await requestJson(`${API_BASE}/logout-v2`, {
+    method: 'POST',
+    auth: false,
+    fallbackMessage: 'Logout failed',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ refreshToken }),
+  });
+  return { success: true };
 }
 
 export async function fetchRegisterCaptcha() {

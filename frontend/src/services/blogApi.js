@@ -4,13 +4,21 @@ import {
   emitAuthChange,
   getAuthToken,
   getUsernameFromToken as getStoredUsernameFromToken,
+  hasV2Session,
   isStoredLoggedIn,
 } from './authStorage';
 import { requestJson } from './httpClient';
+import { logoutV2 } from './api.js';
 
 const API_BASE = '/api/blog';
 
 function isLoggedIn() {
+  // v2 users: both v2 tokens present + loggedIn flag set by login().
+  if (hasV2Session() && isStoredLoggedIn()) {
+    return true;
+  }
+  // Legacy v1 fallback: still allows pages that only check isLoggedIn() to
+  // recognize a v1 token while migration is in progress.
   return isStoredLoggedIn() && !!getAuthToken();
 }
 
@@ -21,14 +29,28 @@ export function getUsernameFromToken() {
   return getStoredUsernameFromToken();
 }
 
-export function logout() {
+export async function logout() {
+  // Best-effort: revoke the v2 refresh token on the server, then clear local
+  // state. If the v2 call fails (e.g. network down), still wipe local so the
+  // user is logged out client-side.
+  try {
+    await logoutV2();
+  } catch (error) {
+    // ignore — fall through to local clear
+  }
   clearAuthSession();
   emitAuthChange();
 }
 
-export async function fetchUserProfile() {
+export async function fetchUserProfile(options = {}) {
+  // Optional bearerToken override (used by legacy v1 migration).
+  const headers = {};
+  if (options?.bearerToken) {
+    headers.Authorization = `Bearer ${options.bearerToken}`;
+  }
   const data = await requestJson('/api/user/profile', {
     fallbackMessage: 'Failed to fetch profile',
+    headers,
   });
   return data.user;
 }
