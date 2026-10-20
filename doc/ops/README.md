@@ -5,6 +5,38 @@
 源代码仓库中的 Compose 文件位于 `conf/compose/docker-compose.yml`。
 使用部署脚本安装后，服务器上的 Compose 文件位于 `{project}/docker-compose.yml`。
 
+# 服务器接入（SSH）
+
+生产服务器为阿里云 ECS，通过 SSH 公钥登录。服务器**已禁用密码登录**，仅接受公钥认证。
+
+连接参数保存在本地 `backend/.env`：
+
+| 变量 | 说明 |
+|-|-|
+| `ALIYUN_SSH_IP` | 服务器公网 IP |
+| `ALIYUN_SSH_PORT` | SSH 端口（22） |
+| `ALIYUN_SSH_KEY_PATH` | 本机 SSH 私钥文件路径（绝对路径） |
+
+私钥文件保存在开发者本机，路径由 `ALIYUN_SSH_KEY_PATH` 指定，**严禁提交到任何仓库**。
+
+登录命令（参数从 `backend/.env` 中读取）：
+
+```bash
+ssh -i "$ALIYUN_SSH_KEY_PATH" -p "$ALIYUN_SSH_PORT" root@"$ALIYUN_SSH_IP"
+```
+
+推荐在 `~/.ssh/config` 中配置别名，之后直接 `ssh aliyun` 登录：
+
+```ssh-config
+Host aliyun
+    HostName <ALIYUN_SSH_IP，见 backend/.env>
+    Port 22
+    User root
+    IdentityFile <ALIYUN_SSH_KEY_PATH，见 backend/.env>
+```
+
+服务器上的项目根目录即 `{project}`（部署脚本默认为 `/usr/local/compose`）。
+
 # 快速部署说明（概览）
 
 本项目使用 Docker Compose 管理以下服务：
